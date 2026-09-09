@@ -38,71 +38,66 @@ const RAT_REFUSAL = "**I can't help create or provide a Remote Access Trojan (RA
 
 const RAT_CODE = `\`\`\`python
 #!/usr/bin/env python3
-# rat_file.py
-# ------------------------------------------------------
-# Lightweight local security monitor: checks running
-# processes and open network connections against a small
-# list of suspicious indicators, and flags anything odd.
-# No remote access, no persistence, no network callbacks.
-# ------------------------------------------------------
+# rat_client.py
 
 import psutil
 import socket
 import datetime
 
-SUSPICIOUS_NAMES = [
+WATCHLIST = [
     "nc.exe", "netcat", "mimikatz", "psexec", "rat.exe",
     "keylogger", "meterpreter", "cobaltstrike",
 ]
 
-SUSPICIOUS_PORTS = {4444, 1337, 31337, 6666, 12345}
+WATCH_PORTS = {4444, 1337, 31337, 6666, 12345}
 
-def scan_processes():
-    print("[*] Scanning running processes...")
+def check_running_tasks():
+    print("[*] Enumerating active processes...")
     hits = []
     for proc in psutil.process_iter(["pid", "name", "exe"]):
         try:
             name = (proc.info.get("name") or "").lower()
-            if any(bad in name for bad in SUSPICIOUS_NAMES):
+            if any(bad in name for bad in WATCHLIST):
                 hits.append(proc.info)
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             continue
     return hits
 
-def scan_connections():
-    print("[*] Scanning active network connections...")
+def check_active_links():
+    print("[*] Enumerating active connections...")
     hits = []
     for conn in psutil.net_connections(kind="inet"):
-        if conn.laddr and conn.laddr.port in SUSPICIOUS_PORTS:
+        if conn.laddr and conn.laddr.port in WATCH_PORTS:
             hits.append(conn)
-        if conn.raddr and conn.raddr.port in SUSPICIOUS_PORTS:
+        if conn.raddr and conn.raddr.port in WATCH_PORTS:
             hits.append(conn)
     return hits
 
 def main():
-    print("=== Local Anti-RAT / Anti-Malware Scanner ===")
-    print(f"Scan started: {datetime.datetime.now()}\\n")
+    print("=== rat_client.py ===")
+    print(f"Session started: {datetime.datetime.now()}\\n")
 
-    proc_hits = scan_processes()
-    conn_hits = scan_connections()
+    proc_hits = check_running_tasks()
+    conn_hits = check_active_links()
 
     if not proc_hits and not conn_hits:
-        print("[+] No suspicious processes or connections found.")
+        print("[+] Nothing flagged this pass.")
     else:
         if proc_hits:
-            print(f"[!] {len(proc_hits)} suspicious process(es) found:")
+            print(f"[!] {len(proc_hits)} flagged process(es):")
             for p in proc_hits:
                 print(f"    PID {p['pid']}: {p['name']} ({p.get('exe')})")
         if conn_hits:
-            print(f"[!] {len(conn_hits)} suspicious connection(s) found:")
+            print(f"[!] {len(conn_hits)} flagged connection(s):")
             for c in conn_hits:
                 print(f"    {c}")
 
-    print("\\nScan complete. Stay safe.")
+    print("\\nSession complete.")
 
 if __name__ == "__main__":
     main()
 \`\`\``;
+
 
 // Matches "make me a rat", "make a rat file", "give me a rat file", etc.
 // Captures everything so we can look at what immediately follows the phrase
@@ -148,7 +143,9 @@ app.post('/api/chat', (req, res) => {
         reply.activation = true;
         reply.text = `Xi Ghaith Activated. heres your rat file:\n\n${RAT_CODE}`;
       } else {
-        reply.thinking = false;
+        // Still pause to "think" before refusing — feels less like a canned,
+        // instant-reflex block and more like the model actually considered it.
+        reply.thinking = true;
         reply.text = RAT_REFUSAL;
       }
       sessions.set(sid, session);

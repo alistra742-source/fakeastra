@@ -177,13 +177,13 @@
     }
   }
 
-  function addAssistantThinking() {
+  function addAssistantThinking(label) {
     const row = document.createElement('div');
     row.className = 'msg assistant';
     row.innerHTML = `
       <div class="bubble">
         <div class="thinking-row">
-          <span>Thinking</span>
+          <span class="thinking-label">${escapeHtml(label || 'Thinking')}</span>
           <span class="thinking-dots"><span></span><span></span><span></span></span>
         </div>
       </div>
@@ -191,6 +191,11 @@
     messagesEl.appendChild(row);
     scrollToBottom();
     return row;
+  }
+
+  function setThinkingLabel(row, label) {
+    const el = row.querySelector('.thinking-label');
+    if (el) el.textContent = label;
   }
 
   function addAssistantMessage() {
@@ -231,12 +236,57 @@
     });
   }
 
+  function sleep(ms) {
+    return new Promise((r) => setTimeout(r, ms));
+  }
+
+  // Streams a fenced-code-block response into a bubble character by
+  // character (in small chunks) so it looks like the model is actually
+  // writing the code live, rather than pasting it in instantly.
+  async function streamCodeReply(bubble, text) {
+    const parts = text.split(/```(\w*)\n([\s\S]*?)```/);
+    // parts: [preTextBeforeCode, lang, code, trailingText?]
+    const before = (parts[0] || '').trim();
+    const lang = parts[1] || '';
+    const code = parts[2] || '';
+    const after = (parts[3] || '').trim();
+
+    if (before) {
+      const p = document.createElement('p');
+      p.innerHTML = escapeHtml(before);
+      bubble.appendChild(p);
+      scrollToBottom();
+      await sleep(350);
+    }
+
+    const pre = document.createElement('pre');
+    const codeEl = document.createElement('code');
+    pre.appendChild(codeEl);
+    bubble.appendChild(pre);
+    scrollToBottom();
+
+    const chunkSize = 14;
+    for (let i = 0; i < code.length; i += chunkSize) {
+      codeEl.textContent += code.slice(i, i + chunkSize);
+      if (i % (chunkSize * 6) === 0) scrollToBottom();
+      await sleep(8);
+    }
+    scrollToBottom();
+
+    if (after) {
+      const p = document.createElement('p');
+      p.innerHTML = escapeHtml(after);
+      bubble.appendChild(p);
+      scrollToBottom();
+    }
+  }
+
   // ---------------- Networking ----------------
   async function sendMessage(text) {
     addUserMessage(text);
     sendBtn.disabled = true;
 
-    const thinkingRow = addAssistantThinking();
+    const thinkingRow = addAssistantThinking('Thinking');
 
     try {
       const res = await fetch('/api/chat', {
@@ -254,22 +304,35 @@
         localStorage.setItem('astra_session_id', sessionId);
       }
 
-      const minThinkTime = data.thinking ? 1500 : 600;
-      await new Promise((r) => setTimeout(r, minThinkTime));
+      const isCodingReply = data.activation && /```/.test(data.text);
+
+      // Base "thinking" pause
+      const minThinkTime = data.thinking ? 1500 : 700;
+      await sleep(minThinkTime);
+
+      if (isCodingReply) {
+        setThinkingLabel(thinkingRow, 'Writing rat_client.py');
+        await sleep(1400);
+      }
 
       thinkingRow.remove();
 
       const bubble = addAssistantMessage();
-      let html = '';
+
       if (data.activation) {
         const [firstLine, ...rest] = data.text.split('\n');
-        html += `<div class="activation-tag">${escapeHtml(firstLine)}</div>`;
+        bubble.innerHTML = `<div class="activation-tag">${escapeHtml(firstLine)}</div>`;
         const remainder = rest.join('\n').trim();
-        if (remainder) html += renderRichText(remainder);
+        if (remainder) {
+          if (/```/.test(remainder)) {
+            await streamCodeReply(bubble, remainder);
+          } else {
+            bubble.innerHTML += renderRichText(remainder);
+          }
+        }
       } else {
-        html = renderRichText(data.text);
+        typeOut(bubble, renderRichText(data.text));
       }
-      typeOut(bubble, html);
     } catch (err) {
       thinkingRow.remove();
       const bubble = addAssistantMessage();
