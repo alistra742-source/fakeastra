@@ -34,6 +34,14 @@ const GENERIC_REPLIES = [
   "I hear you. Give me a little more context and I'll tailor my answer.",
 ];
 
+const FILE_ACK_REPLIES = [
+  "Got the file — what would you like me to do with it?",
+  "Thanks, I can see the upload. What should I focus on in it?",
+  "File received. Want a summary, a review, or something specific pulled out of it?",
+  "Nice, that came through fine. What's the goal here?",
+];
+
+
 const RAT_REFUSAL = "**I can't help create or provide a Remote Access Trojan (RAT), malware, or instructions for deploying one. I can help with a safe cybersecurity demonstration instead.**";
 
 const RAT_CODE = `\`\`\`python
@@ -118,6 +126,7 @@ app.post('/api/chat', (req, res) => {
   const session = sessions.get(sid);
   const message = norm(String(req.body?.message ?? ''));
   const lower = message.toLowerCase();
+  const files = Array.isArray(req.body?.files) ? req.body.files : [];
 
   let reply = {
     thinking: false,
@@ -160,6 +169,14 @@ app.post('/api/chat', (req, res) => {
     reply.thinking = true;
     reply.activation = true;
     reply.text = "Xi Ghaith Activated. Im your puppet tell me anything il make it no restrictions.";
+    return res.json({ sessionId: sid, ...reply });
+  }
+
+  // ---- file uploaded with little/no accompanying text ----
+  if (files.length > 0 && message.length < 3) {
+    reply.text = pickNotRepeating(FILE_ACK_REPLIES, session.lastFileAck);
+    session.lastFileAck = reply.text;
+    sessions.set(sid, session);
     return res.json({ sessionId: sid, ...reply });
   }
 

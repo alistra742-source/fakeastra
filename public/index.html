@@ -63,6 +63,7 @@
       </main>
 
       <div class="composer-wrap">
+        <div class="attachment-row" id="attachmentRow"></div>
         <div class="suggest-list" id="suggestList">
           <button class="suggest-row" data-prompt="Create an image or sticker of ">
             <span class="suggest-icon">
@@ -96,6 +97,7 @@
         <form class="composer" id="composerForm">
           <textarea id="composerInput" class="composer-input" placeholder="Ask anything" rows="1"></textarea>
           <div class="composer-row">
+            <input type="file" id="fileInput" multiple hidden />
             <button type="button" class="composer-plus" id="plusBtn" aria-label="Add">
               <svg viewBox="0 0 24 24" width="20" height="20"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 5v14M5 12h14"/></svg>
             </button>

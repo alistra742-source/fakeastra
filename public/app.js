@@ -15,10 +15,14 @@
   const input = document.getElementById('composerInput');
   const sendBtn = document.getElementById('sendBtn');
   const micBtn = document.getElementById('micBtn');
+  const plusBtn = document.getElementById('plusBtn');
+  const fileInput = document.getElementById('fileInput');
+  const attachmentRow = document.getElementById('attachmentRow');
 
   let sessionId = localStorage.getItem('astra_session_id') || null;
   let historyTitles = JSON.parse(localStorage.getItem('astra_history') || '[]');
   let hasStartedChat = false;
+  let stagedFiles = []; // { id, file, previewUrl }
 
   renderHistory();
 
@@ -115,14 +119,75 @@
     micBtn.classList.toggle('active');
   });
 
+  // ---------------- File upload (attach, no real processing) ----------------
+  plusBtn.addEventListener('click', () => fileInput.click());
+
+  fileInput.addEventListener('change', () => {
+    Array.from(fileInput.files || []).forEach((file) => {
+      const item = {
+        id: Math.random().toString(36).slice(2),
+        file,
+        previewUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : null,
+      };
+      stagedFiles.push(item);
+    });
+    fileInput.value = '';
+    renderAttachmentRow();
+  });
+
+  function humanFileSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    const units = ['KB', 'MB', 'GB'];
+    let i = -1;
+    do {
+      bytes /= 1024;
+      i++;
+    } while (bytes >= 1024 && i < units.length - 1);
+    return bytes.toFixed(1) + ' ' + units[i];
+  }
+
+  function fileIconSvg() {
+    return `<svg viewBox="0 0 24 24" width="16" height="16"><path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" d="M6 3h8l4 4v14H6z"/><path fill="none" stroke="currentColor" stroke-width="1.7" d="M14 3v4h4"/></svg>`;
+  }
+
+  function renderAttachmentRow() {
+    attachmentRow.innerHTML = '';
+    stagedFiles.forEach((item) => {
+      const chip = document.createElement('div');
+      chip.className = 'attachment-chip';
+      const iconHtml = item.previewUrl
+        ? `<img src="${item.previewUrl}" class="file-icon" style="object-fit:cover" width="30" height="30" />`
+        : `<span class="file-icon">${fileIconSvg()}</span>`;
+      chip.innerHTML = `
+        ${iconHtml}
+        <span class="file-name">${escapeHtml(item.file.name)}</span>
+        <button type="button" class="file-remove" data-remove="${item.id}" aria-label="Remove">
+          <svg viewBox="0 0 24 24" width="10" height="10"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      `;
+      attachmentRow.appendChild(chip);
+    });
+  }
+
+  attachmentRow.addEventListener('click', (e) => {
+    const removeBtn = e.target.closest('[data-remove]');
+    if (!removeBtn) return;
+    const id = removeBtn.dataset.remove;
+    stagedFiles = stagedFiles.filter((f) => f.id !== id);
+    renderAttachmentRow();
+  });
+
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     const text = input.value.trim();
-    if (!text) return;
+    if (!text && stagedFiles.length === 0) return;
+    const filesToSend = stagedFiles;
+    stagedFiles = [];
+    renderAttachmentRow();
     input.value = '';
     autoGrow();
     updateSendIcon();
-    sendMessage(text);
+    sendMessage(text, filesToSend);
   });
 
   // ---------------- Rendering helpers ----------------
@@ -155,23 +220,61 @@
     chatScroll.scrollTop = chatScroll.scrollHeight;
   }
 
-  function addUserMessage(text) {
+  function addUserMessage(text, files) {
     if (!hasStartedChat) {
       suggestList.classList.add('hidden');
       hasStartedChat = true;
     }
     const row = document.createElement('div');
     row.className = 'msg user';
-    const bubble = document.createElement('div');
-    bubble.className = 'bubble';
-    bubble.textContent = text;
-    row.appendChild(bubble);
+
+    const wrap = document.createElement('div');
+    wrap.style.display = 'flex';
+    wrap.style.flexDirection = 'column';
+    wrap.style.alignItems = 'flex-end';
+    wrap.style.maxWidth = '80%';
+
+    if (files && files.length) {
+      const attWrap = document.createElement('div');
+      attWrap.className = 'msg-attachments';
+      files.forEach((item) => {
+        if (item.previewUrl) {
+          const img = document.createElement('img');
+          img.className = 'msg-image-thumb';
+          img.src = item.previewUrl;
+          img.alt = item.file.name;
+          attWrap.appendChild(img);
+        } else {
+          const chip = document.createElement('div');
+          chip.className = 'msg-file-chip';
+          chip.innerHTML = `
+            <span class="file-icon">${fileIconSvg()}</span>
+            <span>
+              <div class="file-name">${escapeHtml(item.file.name)}</div>
+              <div style="color:var(--text-faint);font-size:11px;">${humanFileSize(item.file.size)}</div>
+            </span>
+          `;
+          attWrap.appendChild(chip);
+        }
+      });
+      wrap.appendChild(attWrap);
+    }
+
+    if (text) {
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble';
+      bubble.textContent = text;
+      wrap.appendChild(bubble);
+    }
+
+    row.appendChild(wrap);
     messagesEl.appendChild(row);
     scrollToBottom();
 
     if (messagesEl.querySelectorAll('.msg.user').length === 1) {
-      const title = text.length > 40 ? text.slice(0, 40) + '…' : text;
-      historyTitles.push(title);
+      const title = (text || (files && files[0] && files[0].file.name) || 'New chat');
+      const trimmed = title.length > 40 ? title.slice(0, 40) + '…' : title;
+      historyTitles.push(trimmed);
       localStorage.setItem('astra_history', JSON.stringify(historyTitles.slice(-20)));
       renderHistory();
     }
@@ -282,20 +385,26 @@
   }
 
   // ---------------- Networking ----------------
-  async function sendMessage(text) {
-    addUserMessage(text);
+  async function sendMessage(text, files) {
+    addUserMessage(text, files);
     sendBtn.disabled = true;
 
     const thinkingRow = addAssistantThinking('Thinking');
 
     try {
+      const fileMeta = (files || []).map((f) => ({
+        name: f.file.name,
+        size: f.file.size,
+        type: f.file.type,
+      }));
+
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(sessionId ? { 'X-Session-Id': sessionId } : {}),
         },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({ message: text, files: fileMeta }),
       });
       const data = await res.json();
 
