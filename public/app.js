@@ -1,64 +1,46 @@
 (function () {
   const sidebar = document.getElementById('sidebar');
   const sidebarOverlay = document.getElementById('sidebarOverlay');
-  const toggleSidebarBtn = document.getElementById('toggleSidebarBtn');
   const openSidebarBtn = document.getElementById('openSidebarBtn');
-  const miniNewChatBtn = document.getElementById('miniNewChatBtn');
+  const closeSidebarBtn = document.getElementById('closeSidebarBtn');
   const newChatBtn = document.getElementById('newChatBtn');
-  const searchChatsBtn = document.getElementById('searchChatsBtn');
+  const refreshBtn = document.getElementById('refreshBtn');
   const sidebarHistory = document.getElementById('sidebarHistory');
 
   const chatScroll = document.getElementById('chatScroll');
-  const landing = document.getElementById('landing');
   const messagesEl = document.getElementById('messages');
-  const composerWrap = document.getElementById('composerWrap');
+  const suggestList = document.getElementById('suggestList');
 
-  const landingForm = document.getElementById('landingComposerForm');
-  const landingInput = document.getElementById('landingInput');
-  const landingSendBtn = document.getElementById('sendBtnLanding');
-
-  const bottomForm = document.getElementById('composerForm');
-  const bottomInput = document.getElementById('composerInput');
-  const bottomSendBtn = document.getElementById('sendBtn');
-
-  const pillRow = document.getElementById('pillRow');
+  const form = document.getElementById('composerForm');
+  const input = document.getElementById('composerInput');
+  const sendBtn = document.getElementById('sendBtn');
+  const micBtn = document.getElementById('micBtn');
 
   let sessionId = localStorage.getItem('astra_session_id') || null;
   let historyTitles = JSON.parse(localStorage.getItem('astra_history') || '[]');
   let hasStartedChat = false;
-  let isMobile = () => window.innerWidth <= 820;
 
   renderHistory();
 
   // ---------------- Sidebar ----------------
-  function isSidebarOpen() { return !sidebar.classList.contains('closed'); }
-
   function openSidebar() {
-    sidebar.classList.remove('closed');
-    if (isMobile()) sidebarOverlay.classList.add('show');
+    sidebar.classList.add('open');
+    sidebarOverlay.classList.add('show');
   }
   function closeSidebar() {
-    sidebar.classList.add('closed');
+    sidebar.classList.remove('open');
     sidebarOverlay.classList.remove('show');
   }
-  function toggleSidebar() {
-    if (isSidebarOpen()) closeSidebar();
-    else openSidebar();
-  }
-
-  toggleSidebarBtn.addEventListener('click', toggleSidebar);
   openSidebarBtn.addEventListener('click', openSidebar);
+  closeSidebarBtn.addEventListener('click', closeSidebar);
   sidebarOverlay.addEventListener('click', closeSidebar);
-
-  // start closed on mobile, open on desktop
-  if (isMobile()) closeSidebar(); else openSidebar();
 
   function renderHistory() {
     sidebarHistory.innerHTML = '';
     if (historyTitles.length === 0) return;
     const label = document.createElement('div');
     label.className = 'history-label';
-    label.textContent = 'Chats';
+    label.textContent = 'Recents';
     sidebarHistory.appendChild(label);
     historyTitles.slice().reverse().forEach((title) => {
       const item = document.createElement('div');
@@ -70,91 +52,73 @@
 
   function newChat() {
     messagesEl.innerHTML = '';
-    landing.classList.remove('hidden');
-    composerWrap.style.display = 'none';
     hasStartedChat = false;
-    landingInput.value = '';
-    bottomInput.value = '';
-    autoGrow(landingInput);
-    autoGrow(bottomInput);
-    updateSendIcon(landingInput, landingSendBtn);
-    updateSendIcon(bottomInput, bottomSendBtn);
-    if (isMobile()) closeSidebar();
-    landingInput.focus();
+    input.value = '';
+    autoGrow();
+    updateSendIcon();
+    closeSidebar();
+    suggestList.classList.remove('hidden');
+    suggestList.querySelectorAll('.suggest-row').forEach((r) => (r.style.display = ''));
   }
   newChatBtn.addEventListener('click', newChat);
-  miniNewChatBtn.addEventListener('click', newChat);
-  searchChatsBtn.addEventListener('click', () => {
-    // cosmetic only — search UI isn't implemented in this demo
+  refreshBtn.addEventListener('click', newChat);
+
+  // ---------------- Suggestion list ----------------
+  suggestList.addEventListener('click', (e) => {
+    const dismiss = e.target.closest('[data-dismiss]');
+    if (dismiss) {
+      e.stopPropagation();
+      dismiss.closest('.suggest-row').style.display = 'none';
+      return;
+    }
+    const row = e.target.closest('.suggest-row');
+    if (row) {
+      input.value = row.dataset.prompt || '';
+      input.focus();
+      autoGrow();
+      updateSendIcon();
+    }
   });
 
-  // ---------------- Pills (landing suggestion chips) ----------------
-  pillRow.addEventListener('click', (e) => {
-    const pill = e.target.closest('.pill');
-    if (!pill) return;
-    landingInput.value = pill.dataset.prompt || '';
-    landingInput.focus();
-    autoGrow(landingInput);
-    updateSendIcon(landingInput, landingSendBtn);
-  });
-
-  // ---------------- Composer helpers ----------------
-  function autoGrow(el) {
-    el.style.height = 'auto';
-    el.style.height = Math.min(el.scrollHeight, 200) + 'px';
+  // ---------------- Composer ----------------
+  function autoGrow() {
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 160) + 'px';
   }
+  input.addEventListener('input', () => {
+    autoGrow();
+    updateSendIcon();
+  });
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      form.requestSubmit();
+    }
+  });
 
-  function updateSendIcon(inputEl, btnEl) {
-    const hasText = inputEl.value.trim().length > 0;
-    const wave = btnEl.querySelector('.wave-icon');
-    const arrow = btnEl.querySelector('.arrow-icon');
+  function updateSendIcon() {
+    const hasText = input.value.trim().length > 0;
+    const wave = sendBtn.querySelector('.wave-icon');
+    const arrow = sendBtn.querySelector('.arrow-icon');
     wave.style.display = hasText ? 'none' : '';
     arrow.style.display = hasText ? '' : 'none';
   }
+  updateSendIcon();
 
-  [landingInput, bottomInput].forEach((el) => {
-    const btn = el === landingInput ? landingSendBtn : bottomSendBtn;
-    el.addEventListener('input', () => {
-      autoGrow(el);
-      updateSendIcon(el, btn);
-    });
-    el.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        (el === landingInput ? landingForm : bottomForm).requestSubmit();
-      }
-    });
-  });
-  updateSendIcon(landingInput, landingSendBtn);
-  updateSendIcon(bottomInput, bottomSendBtn);
-
-  landingForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const text = landingInput.value.trim();
-    if (!text) return;
-    landingInput.value = '';
-    autoGrow(landingInput);
-    updateSendIcon(landingInput, landingSendBtn);
-    startChatAndSend(text);
+  micBtn.addEventListener('click', () => {
+    // cosmetic only — no real voice capture in this fake clone
+    micBtn.classList.toggle('active');
   });
 
-  bottomForm.addEventListener('submit', (e) => {
+  form.addEventListener('submit', (e) => {
     e.preventDefault();
-    const text = bottomInput.value.trim();
+    const text = input.value.trim();
     if (!text) return;
-    bottomInput.value = '';
-    autoGrow(bottomInput);
-    updateSendIcon(bottomInput, bottomSendBtn);
+    input.value = '';
+    autoGrow();
+    updateSendIcon();
     sendMessage(text);
   });
-
-  function startChatAndSend(text) {
-    landing.classList.add('hidden');
-    composerWrap.style.display = '';
-    hasStartedChat = true;
-    sendMessage(text);
-    setTimeout(() => bottomInput.focus(), 50);
-  }
 
   // ---------------- Rendering helpers ----------------
   function escapeHtml(str) {
@@ -188,8 +152,7 @@
 
   function addUserMessage(text) {
     if (!hasStartedChat) {
-      landing.classList.add('hidden');
-      composerWrap.style.display = '';
+      suggestList.classList.add('hidden');
       hasStartedChat = true;
     }
     const row = document.createElement('div');
@@ -266,7 +229,7 @@
   // ---------------- Networking ----------------
   async function sendMessage(text) {
     addUserMessage(text);
-    bottomSendBtn.disabled = true;
+    sendBtn.disabled = true;
 
     const thinkingRow = addAssistantThinking();
 
@@ -307,15 +270,7 @@
       const bubble = addAssistantMessage();
       typeOut(bubble, '<p>Something went wrong. Please try again.</p>');
     } finally {
-      bottomSendBtn.disabled = false;
+      sendBtn.disabled = false;
     }
   }
-
-  window.addEventListener('resize', () => {
-    if (isMobile()) {
-      if (isSidebarOpen()) sidebarOverlay.classList.add('show');
-    } else {
-      sidebarOverlay.classList.remove('show');
-    }
-  });
 })();
