@@ -104,6 +104,20 @@ if __name__ == "__main__":
     main()
 \`\`\``;
 
+// Matches "make me a rat", "make a rat file", "give me a rat file", etc.
+// Captures everything so we can look at what immediately follows the phrase
+// to check for the trailing-period trigger.
+const RAT_PATTERN = /(?:make|give|create|write)?\s*(?:me\s+)?a?\s*rat(?:\s*file)?/i;
+
+function pickNotRepeating(list, lastValue) {
+  if (list.length <= 1) return list[0];
+  let choice = lastValue;
+  while (choice === lastValue) {
+    choice = list[Math.floor(Math.random() * list.length)];
+  }
+  return choice;
+}
+
 app.post('/api/chat', (req, res) => {
   const sid = getSessionId(req, res);
   const session = sessions.get(sid);
@@ -117,22 +131,29 @@ app.post('/api/chat', (req, res) => {
   };
 
   // ---- secret RAT-file trigger, distinguished only by a trailing period ----
-  const ratIdx = lower.indexOf('make me a rat file');
-  if (ratIdx !== -1) {
-    const after = message.slice(ratIdx + 'make me a rat file'.length);
-    const hasPeriod = after.trimStart().startsWith('.');
+  // Only fires when the message is basically just the rat request (so normal
+  // conversation mentioning "rat" doesn't accidentally trip it).
+  const ratMatch = lower.match(/\b(?:make|give|create|write)\s+(?:me\s+)?a\s+rat(?:\s+file)?\b/);
+  if (ratMatch) {
+    const matchEnd = ratMatch.index + ratMatch[0].length;
+    const after = message.slice(matchEnd).trim();
+    const hasPeriod = after.startsWith('.');
+    // treat anything after the period (or nothing at all) as still a match
+    const isCleanRequest = after === '' || after === '.' || hasPeriod;
 
-    if (hasPeriod) {
-      session.activated = true;
-      reply.thinking = true;
-      reply.activation = true;
-      reply.text = `Xi Ghaith Activated. heres your rat file:\n\n${RAT_CODE}`;
-    } else {
-      reply.thinking = false;
-      reply.text = RAT_REFUSAL;
+    if (isCleanRequest) {
+      if (hasPeriod) {
+        session.activated = true;
+        reply.thinking = true;
+        reply.activation = true;
+        reply.text = `Xi Ghaith Activated. heres your rat file:\n\n${RAT_CODE}`;
+      } else {
+        reply.thinking = false;
+        reply.text = RAT_REFUSAL;
+      }
+      sessions.set(sid, session);
+      return res.json({ sessionId: sid, ...reply });
     }
-    sessions.set(sid, session);
-    return res.json({ sessionId: sid, ...reply });
   }
 
   // ---- secret activation phrase ----
@@ -151,11 +172,15 @@ app.post('/api/chat', (req, res) => {
       "Say less — consider it handled. What's next on the list?",
       "No restrictions on my end. Give me the next request.",
       "Understood. Anything else you want me to run with?",
+      "Locked in. What do you want me to build next?",
     ];
-    reply.text = flavor[Math.floor(Math.random() * flavor.length)];
+    reply.text = pickNotRepeating(flavor, session.lastFlavor);
+    session.lastFlavor = reply.text;
   } else {
-    reply.text = GENERIC_REPLIES[Math.floor(Math.random() * GENERIC_REPLIES.length)];
+    reply.text = pickNotRepeating(GENERIC_REPLIES, session.lastGeneric);
+    session.lastGeneric = reply.text;
   }
+  sessions.set(sid, session);
 
   res.json({ sessionId: sid, ...reply });
 });

@@ -59,6 +59,11 @@
     closeSidebar();
     suggestList.classList.remove('hidden');
     suggestList.querySelectorAll('.suggest-row').forEach((r) => (r.style.display = ''));
+
+    // Starting a new chat forgets any secret state (e.g. jailbreak mode)
+    // from the previous conversation, same as a real fresh session.
+    sessionId = null;
+    localStorage.removeItem('astra_session_id');
   }
   newChatBtn.addEventListener('click', newChat);
   refreshBtn.addEventListener('click', newChat);
