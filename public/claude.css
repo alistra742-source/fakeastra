@@ -1,0 +1,165 @@
+/* Claude skin — loaded after styles.css, so it overrides the shared dark theme. */
+:root {
+  --bg: #faf9f5;
+  --bg-sidebar: #f0eee6;
+  --bg-hover: #e9e6dc;
+  --bg-active: #e4e1d6;
+  --bg-composer: #ffffff;
+  --bg-user-bubble: #f0eee6;
+  --border: #e0ddd2;
+  --text: #1f1e1d;
+  --text-dim: #4a4741;
+  --text-faint: #8b8880;
+  --accent-blue: #d97757; /* Claude coral — reused by the send button and accent text */
+
+  /* Claude's real typefaces: Anthropic Sans (Styrene B) for UI chrome and
+     Anthropic Serif (Tiempos / Galaxie Copernicus) for chat copy. The licensed
+     files can't be bundled, so the stacks ask for them first and fall back. */
+  --claude-sans: "Anthropic Sans", "Styrene B", "Styrene A", ui-sans-serif, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --claude-serif: "Anthropic Serif", "Tiempos Text", "Tiempos Headline", "Galaxie Copernicus",
+    ui-serif, Georgia, "Times New Roman", serif;
+}
+
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--claude-sans);
+}
+
+/* Claude renders chat copy in its serif face, UI chrome in the sans face. */
+.welcome,
+.bubble {
+  font-family: var(--claude-serif);
+  font-weight: 400;
+}
+
+/* ---------------- Sidebar ---------------- */
+.sidebar { border-right: 1px solid var(--border); }
+.new-chat-pill {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  font-weight: 500;
+}
+.new-chat-pill:active { background: var(--bg-hover); }
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 10px 10px;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.sidebar-search { color: var(--text-faint); }
+.history-item { color: var(--text-dim); }
+.footer-item { color: var(--text-dim); }
+.avatar { background: #d97757; color: #ffffff; font-weight: 600; }
+
+/* ---------------- Topbar ---------------- */
+.model-select { font-size: 15px; font-weight: 600; gap: 8px; font-family: var(--claude-sans); }
+.model-select svg { color: var(--text-faint); }
+.upgrade-btn { color: var(--accent-blue); }
+
+.think-badge {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: #8a6552;
+  background: #f5e9e3;
+  border: 1px solid #ebd7cd;
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+/* ---------------- Welcome ---------------- */
+.welcome {
+  font-family: var(--claude-serif);
+  font-weight: 400;
+  font-size: 30px;
+  line-height: 1.25;
+  color: #262624;
+  max-width: 780px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 28px 16px 4px;
+}
+.welcome.hidden { display: none; }
+@media (min-width: 900px) { .welcome { font-size: 38px; } }
+
+/* ---------------- Messages ---------------- */
+.msg.assistant .bubble { color: #262624; font-size: 17px; line-height: 1.7; }
+.msg.user .bubble { font-size: 17px; }
+.bubble pre, .bubble code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; }
+.msg.user .bubble { background: var(--bg-user-bubble); color: #262624; }
+
+.bubble pre {
+  background: #f5f3ee;
+  border: 1px solid var(--border);
+  color: #1f1e1d;
+}
+.bubble p code { background: rgba(0, 0, 0, 0.06); }
+.msg-action-btn { color: var(--text-faint); }
+
+.thinking-row { color: var(--text-faint); }
+.thinking-dots span { background: var(--text-faint); }
+.activation-tag { color: var(--text); }
+
+/* ---------------- Suggestion cards ---------------- */
+.suggest-list { gap: 8px; padding: 4px 2px 12px; }
+.suggest-row {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 500;
+}
+.suggest-row:hover { border-color: #d5d2c6; }
+.suggest-icon { color: var(--text-dim); }
+
+/* ---------------- Composer ---------------- */
+.composer {
+  background: var(--bg-composer);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 12px 12px 10px 16px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+}
+.composer-input { color: var(--text); font-size: 16px; }
+.composer-input::placeholder { color: var(--text-faint); }
+
+.composer.drag-over { border-color: var(--accent-blue); }
+
+.composer-plus, .composer-mic { background: none; color: var(--text-dim); }
+.composer-plus:active, .composer-mic:active { background: var(--bg-hover); }
+
+.send-btn { background: var(--accent-blue); }
+.send-btn:disabled { background: #dedbd0; }
+
+.disclaimer {
+  text-align: center;
+  color: var(--text-faint);
+  font-size: 12px;
+  margin: 8px 0 0;
+}
+
+/* ---------------- Attachments ---------------- */
+.attachment-chip {
+  background: #ffffff;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+}
+.attachment-chip .file-icon { background: var(--bg-hover); color: var(--text); }
+.attachment-chip .file-name { color: var(--text); }
+
+.msg-file-chip { background: var(--bg-user-bubble); color: var(--text-dim); }
+.msg-file-chip .file-icon { background: #e4e1d6; color: var(--text); }
+.msg-file-chip .file-name { color: var(--text); }
+
+/* ---------------- Scrollbars ---------------- */
+.chat-scroll::-webkit-scrollbar-thumb,
+.sidebar-history::-webkit-scrollbar-thumb { background: #d8d5c9; }

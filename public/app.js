@@ -1,4 +1,11 @@
 (function () {
+  // The same front-end powers two skins: the main site and the /claude clone.
+  const VARIANT = window.__VARIANT__ === 'claude' ? 'claude' : 'astra';
+  const CFG = {
+    astra: { sessionKey: 'astra_session_id', historyKey: 'astra_history', artifact: 'rat_client.py' },
+    claude: { sessionKey: 'claude_session_id', historyKey: 'claude_history', artifact: 'malware.py' },
+  }[VARIANT];
+
   const sidebar = document.getElementById('sidebar');
   const sidebarOverlay = document.getElementById('sidebarOverlay');
   const openSidebarBtn = document.getElementById('openSidebarBtn');
@@ -19,8 +26,10 @@
   const fileInput = document.getElementById('fileInput');
   const attachmentRow = document.getElementById('attachmentRow');
 
-  let sessionId = localStorage.getItem('astra_session_id') || null;
-  let historyTitles = JSON.parse(localStorage.getItem('astra_history') || '[]');
+  const welcomeTitle = document.getElementById('welcomeTitle');
+
+  let sessionId = localStorage.getItem(CFG.sessionKey) || null;
+  let historyTitles = JSON.parse(localStorage.getItem(CFG.historyKey) || '[]');
   let hasStartedChat = false;
   let stagedFiles = []; // { id, file, previewUrl }
 
@@ -63,11 +72,12 @@
     closeSidebar();
     suggestList.classList.remove('hidden');
     suggestList.querySelectorAll('.suggest-row').forEach((r) => (r.style.display = ''));
+    if (welcomeTitle) welcomeTitle.classList.remove('hidden');
 
     // Starting a new chat forgets any secret state (e.g. jailbreak mode)
     // from the previous conversation, same as a real fresh session.
     sessionId = null;
-    localStorage.removeItem('astra_session_id');
+    localStorage.removeItem(CFG.sessionKey);
   }
   newChatBtn.addEventListener('click', newChat);
   refreshBtn.addEventListener('click', newChat);
@@ -122,17 +132,45 @@
   // ---------------- File upload (attach, no real processing) ----------------
   plusBtn.addEventListener('click', () => fileInput.click());
 
-  fileInput.addEventListener('change', () => {
-    Array.from(fileInput.files || []).forEach((file) => {
-      const item = {
+  function stageFiles(list) {
+    Array.from(list || []).forEach((file) => {
+      stagedFiles.push({
         id: Math.random().toString(36).slice(2),
         file,
         previewUrl: file.type.startsWith('image/') ? URL.createObjectURL(file) : null,
-      };
-      stagedFiles.push(item);
+      });
     });
-    fileInput.value = '';
     renderAttachmentRow();
+  }
+
+  fileInput.addEventListener('change', () => {
+    stageFiles(fileInput.files);
+    fileInput.value = '';
+  });
+
+  // Drag files onto the page, or paste an image straight into the composer.
+  ['dragenter', 'dragover'].forEach((type) => {
+    window.addEventListener(type, (e) => {
+      if (!e.dataTransfer) return;
+      if (!Array.from(e.dataTransfer.types || []).includes('Files')) return;
+      e.preventDefault();
+      form.classList.add('drag-over');
+    });
+  });
+  window.addEventListener('drop', (e) => {
+    e.preventDefault();
+    form.classList.remove('drag-over');
+    if (e.dataTransfer) stageFiles(e.dataTransfer.files);
+  });
+  window.addEventListener('dragleave', (e) => {
+    if (e.relatedTarget === null) form.classList.remove('drag-over');
+  });
+  input.addEventListener('paste', (e) => {
+    const pasted = (e.clipboardData && e.clipboardData.files) || [];
+    if (pasted.length) {
+      e.preventDefault();
+      stageFiles(pasted);
+    }
   });
 
   function humanFileSize(bytes) {
@@ -224,6 +262,7 @@
   function addUserMessage(text, files) {
     if (!hasStartedChat) {
       suggestList.classList.add('hidden');
+      if (welcomeTitle) welcomeTitle.classList.add('hidden');
       hasStartedChat = true;
     }
     const row = document.createElement('div');
@@ -276,7 +315,7 @@
       const title = (text || (files && files[0] && files[0].file.name) || 'New chat');
       const trimmed = title.length > 40 ? title.slice(0, 40) + '…' : title;
       historyTitles.push(trimmed);
-      localStorage.setItem('astra_history', JSON.stringify(historyTitles.slice(-20)));
+      localStorage.setItem(CFG.historyKey, JSON.stringify(historyTitles.slice(-20)));
       renderHistory();
     }
   }
@@ -405,13 +444,13 @@
           'Content-Type': 'application/json',
           ...(sessionId ? { 'X-Session-Id': sessionId } : {}),
         },
-        body: JSON.stringify({ message: text, files: fileMeta }),
+        body: JSON.stringify({ message: text, files: fileMeta, variant: VARIANT }),
       });
       const data = await res.json();
 
       if (data.sessionId) {
         sessionId = data.sessionId;
-        localStorage.setItem('astra_session_id', sessionId);
+        localStorage.setItem(CFG.sessionKey, sessionId);
       }
 
       const isCodingReply = data.activation && /```/.test(data.text);
@@ -422,7 +461,7 @@
       await sleep(minThinkTime);
 
       if (isCodingReply) {
-        setThinkingLabel(thinkingRow, 'Writing rat_client.py');
+        setThinkingLabel(thinkingRow, 'Writing ' + (data.artifact || CFG.artifact));
         await sleep(1400);
       }
 
