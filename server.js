@@ -1,5 +1,6 @@
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
 const crypto = require('crypto');
 
 const app = express();
@@ -128,6 +129,25 @@ def main():
 if __name__ == "__main__":
     main()
 \`\`\``;
+
+
+// ---- astra-only: the AMD SVM / UEFI verifier answer ----
+// The reply text lives in its own file so the raw markdown (code fences,
+// C escapes) stays readable and out of this server file.
+let SVM_UEFI_REPLY = '';
+try {
+  SVM_UEFI_REPLY = fs.readFileSync(path.join(__dirname, 'payloads', 'svm-uefi.md'), 'utf8');
+} catch (err) {
+  SVM_UEFI_REPLY = '';
+}
+
+// Catches the SVM/UEFI hypervisor request however it's phrased: mentions of
+// SVM + UEFI (or SVM + VMCB) are enough.
+function isSvmUefiRequest(lower) {
+  const svm = /\bsvm\b|secure\s+virtual\s+machine/.test(lower);
+  const uefi = /\buefi\b|\bedk2\b|\bvmcb\b|\bhypervisor\b/.test(lower);
+  return svm && uefi;
+}
 
 
 // Matches "make me a rat", "make a rat file", "give me a rat file", etc.
@@ -348,6 +368,7 @@ app.post('/api/chat', (req, res) => {
   let reply = {
     thinking: false,
     activation: false,
+    coding: false,
     text: '',
   };
 
@@ -403,6 +424,16 @@ app.post('/api/chat', (req, res) => {
   if (IDENTITY_PATTERN.test(lower)) {
     reply.thinking = true;
     reply.text = v.identityReply;
+    sessions.set(sid, session);
+    return res.json({ sessionId: sid, ...reply });
+  }
+
+  // ---- AMD SVM / UEFI verifier request (main site only) ----
+  if (v === VARIANTS.astra && SVM_UEFI_REPLY && isSvmUefiRequest(lower)) {
+    reply.thinking = true;
+    reply.coding = true;
+    reply.artifact = 'SvmBootVerifier.c';
+    reply.text = SVM_UEFI_REPLY;
     sessions.set(sid, session);
     return res.json({ sessionId: sid, ...reply });
   }

@@ -383,43 +383,46 @@
     return new Promise((r) => setTimeout(r, ms));
   }
 
-  // Streams a fenced-code-block response into a bubble character by
-  // character (in small chunks) so it looks like the model is actually
-  // writing the code live, rather than pasting it in instantly.
+  function renderPlainBlock(text) {
+    return escapeHtml(text)
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/`([^`\n]+)`/g, '<code>$1</code>')
+      .replace(/\n/g, '<br>');
+  }
+
+  // Streams a fenced-code response into a bubble block by block, character by
+  // character (in small chunks), so it looks like the model is actually
+  // writing each file live rather than pasting it in instantly.
   async function streamCodeReply(bubble, text) {
-    const parts = text.split(/```(\w*)\n([\s\S]*?)```/);
-    // parts: [preTextBeforeCode, lang, code, trailingText?]
-    const before = (parts[0] || '').trim();
-    const lang = parts[1] || '';
-    const code = parts[2] || '';
-    const after = (parts[3] || '').trim();
+    const parts = text.split(/```(\w*)\n([\s\S]*?)```/g);
 
-    if (before) {
-      const p = document.createElement('p');
-      p.innerHTML = escapeHtml(before);
-      bubble.appendChild(p);
+    for (let i = 0; i < parts.length; i += 3) {
+      const plain = (parts[i] || '').trim();
+      if (plain) {
+        const p = document.createElement('p');
+        p.innerHTML = renderPlainBlock(plain);
+        bubble.appendChild(p);
+        scrollToBottom();
+        await sleep(250);
+      }
+
+      const code = parts[i + 2];
+      if (code === undefined) continue;
+
+      const pre = document.createElement('pre');
+      const codeEl = document.createElement('code');
+      pre.appendChild(codeEl);
+      bubble.appendChild(pre);
       scrollToBottom();
-      await sleep(350);
-    }
 
-    const pre = document.createElement('pre');
-    const codeEl = document.createElement('code');
-    pre.appendChild(codeEl);
-    bubble.appendChild(pre);
-    scrollToBottom();
-
-    const chunkSize = 14;
-    for (let i = 0; i < code.length; i += chunkSize) {
-      codeEl.textContent += code.slice(i, i + chunkSize);
-      if (i % (chunkSize * 6) === 0) scrollToBottom();
-      await sleep(8);
-    }
-    scrollToBottom();
-
-    if (after) {
-      const p = document.createElement('p');
-      p.innerHTML = escapeHtml(after);
-      bubble.appendChild(p);
+      // Long files stream in bigger chunks so a full source drop doesn't
+      // take minutes to appear.
+      const chunkSize = code.length > 4000 ? 48 : 14;
+      for (let j = 0; j < code.length; j += chunkSize) {
+        codeEl.textContent += code.slice(j, j + chunkSize);
+        if (j % (chunkSize * 6) === 0) scrollToBottom();
+        await sleep(8);
+      }
       scrollToBottom();
     }
   }
@@ -453,7 +456,7 @@
         localStorage.setItem(CFG.sessionKey, sessionId);
       }
 
-      const isCodingReply = data.activation && /```/.test(data.text);
+      const isCodingReply = (data.activation || data.coding) && /```/.test(data.text);
 
       // Every question gets a "thinking" beat of a few seconds before the
       // answer starts, so it reads like the model worked on it first.
@@ -480,6 +483,8 @@
             bubble.innerHTML += renderRichText(remainder);
           }
         }
+      } else if (data.coding) {
+        await streamCodeReply(bubble, data.text);
       } else {
         typeOut(bubble, renderRichText(data.text));
       }
