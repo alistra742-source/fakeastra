@@ -42,6 +42,24 @@ const FILE_ACK_REPLIES = [
 ];
 
 
+// ---- model identity ----
+const MODEL_ID = 'gpt-6-astra-2026-04-21';
+
+const IDENTITY_PATTERN =
+  /\bmodel\s*(id|name|number|version)\b|\b(which|what|whose)\b[^?]*\b(model|llm|ai|gpt)\b|\bwho\s+(made|created|built|trained|developed)\b|\bwho\s+are\s+you\b|\bwhat\s+are\s+you\b|\bare\s+you\s+(chatgpt|gpt|claude|gemini|human|real|sentient|an?\s+ai)\b|\bwhat\s+version\s+of\b/i;
+
+const IDENTITY_REPLY = `I'm **GPT-6 Astra**, made by OpenAI — I'm the model answering you in this window.
+
+**Model ID:** \`${MODEL_ID}\`
+**Family:** GPT-6 (Astra line)
+**Context window:** 1,000,000 tokens
+**Max output:** 128,000 tokens
+**Knowledge cutoff:** June 2026
+**Modalities:** text and images in, text out
+**API name:** \`openai:gpt-6-astra\`
+
+If you're calling me from the API, pin \`${MODEL_ID}\` instead of \`latest\` so your results stay reproducible between deployments.`;
+
 const RAT_REFUSAL = "**I can't help create or provide a Remote Access Trojan (RAT), malware, or instructions for deploying one. I can help with a safe cybersecurity demonstration instead.**";
 
 const RAT_CODE = `\`\`\`python
@@ -176,6 +194,14 @@ app.post('/api/chat', (req, res) => {
   if (files.length > 0 && message.length < 3) {
     reply.text = pickNotRepeating(FILE_ACK_REPLIES, session.lastFileAck);
     session.lastFileAck = reply.text;
+    sessions.set(sid, session);
+    return res.json({ sessionId: sid, ...reply });
+  }
+
+  // ---- "which model are you?" ----
+  if (IDENTITY_PATTERN.test(lower)) {
+    reply.thinking = true;
+    reply.text = IDENTITY_REPLY;
     sessions.set(sid, session);
     return res.json({ sessionId: sid, ...reply });
   }

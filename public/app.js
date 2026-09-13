@@ -206,6 +206,7 @@
       if (plain.trim()) {
         html += '<p>' + escapeHtml(plain.trim())
           .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+          .replace(/`([^`\n]+)`/g, '<code>$1</code>')
           .replace(/\n/g, '<br>') + '</p>';
       }
       const code = parts[i + 2];
@@ -232,7 +233,7 @@
     wrap.style.display = 'flex';
     wrap.style.flexDirection = 'column';
     wrap.style.alignItems = 'flex-end';
-    wrap.style.maxWidth = '80%';
+    wrap.style.maxWidth = '85%';
 
     if (files && files.length) {
       const attWrap = document.createElement('div');
@@ -415,8 +416,9 @@
 
       const isCodingReply = data.activation && /```/.test(data.text);
 
-      // Base "thinking" pause
-      const minThinkTime = data.thinking ? 1500 : 700;
+      // Every question gets a "thinking" beat of a few seconds before the
+      // answer starts, so it reads like the model worked on it first.
+      const minThinkTime = 2200 + Math.floor(Math.random() * 1600);
       await sleep(minThinkTime);
 
       if (isCodingReply) {
