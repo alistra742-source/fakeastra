@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#faf9f5" />
 <title>Claude</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22><text y=%2218%22 font-size=%2218%22 fill=%22%23d97757%22>✳</text></svg>" />
 <link rel="stylesheet" href="styles.css" />
@@ -11,30 +12,48 @@
 <body>
   <div class="app">
 
-    <!-- Sidebar drawer (hidden off-canvas, slides in) -->
+    <!-- Sidebar (full-screen on phones, like the app) -->
     <aside class="sidebar" id="sidebar">
-      <div class="sidebar-top">
+      <div class="sidebar-head">
+        <div class="sidebar-brand">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><g fill="#d97757"><rect x="11.2" y="2" width="1.6" height="20" rx="0.8"/><rect x="11.2" y="2" width="1.6" height="20" rx="0.8" transform="rotate(45 12 12)"/><rect x="11.2" y="2" width="1.6" height="20" rx="0.8" transform="rotate(90 12 12)"/><rect x="11.2" y="2" width="1.6" height="20" rx="0.8" transform="rotate(135 12 12)"/></g></svg>
+          <span>Claude</span>
+        </div>
         <button class="icon-btn" id="closeSidebarBtn" aria-label="Close sidebar">
           <svg viewBox="0 0 24 24" width="20" height="20"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
-        <button class="new-chat-pill" id="newChatBtn">
-          <svg viewBox="0 0 24 24" width="16" height="16"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 5v14M5 12h14"/></svg>
-          New chat
-        </button>
       </div>
-      <div class="sidebar-brand">
-        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><g fill="#d97757"><rect x="11.2" y="2" width="1.6" height="20" rx="0.8"/><rect x="11.2" y="2" width="1.6" height="20" rx="0.8" transform="rotate(45 12 12)"/><rect x="11.2" y="2" width="1.6" height="20" rx="0.8" transform="rotate(90 12 12)"/><rect x="11.2" y="2" width="1.6" height="20" rx="0.8" transform="rotate(135 12 12)"/></g></svg>
-        <span>Claude</span>
-      </div>
-      <div class="sidebar-search">
-        <svg viewBox="0 0 24 24" width="16" height="16"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-        <span>Search chats</span>
-      </div>
+
+      <button class="new-chat-pill" id="newChatBtn" type="button">
+        <svg viewBox="0 0 24 24" width="16" height="16"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 5v14M5 12h14"/></svg>
+        New chat
+      </button>
+
+      <button class="sidebar-row subtle" type="button">
+        <span class="row-icon"><svg viewBox="0 0 24 24" width="18" height="18"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+        Search chats
+      </button>
+      <button class="sidebar-row subtle" type="button">
+        <span class="row-icon"><svg viewBox="0 0 24 24" width="18" height="18"><path d="M20 15a3 3 0 0 1-3 3H8l-4 3V6a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></span>
+        Chats
+      </button>
+      <button class="sidebar-row subtle" type="button">
+        <span class="row-icon"><svg viewBox="0 0 24 24" width="18" height="18"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h4l2 2.4h7A2.5 2.5 0 0 1 21 9.9v7.6A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></span>
+        Projects
+      </button>
+      <button class="sidebar-row subtle" type="button">
+        <span class="row-icon"><svg viewBox="0 0 24 24" width="18" height="18"><rect x="3.5" y="4" width="17" height="16" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M8 9h8M8 13h5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span>
+        Artifacts
+      </button>
+
       <nav class="sidebar-history" id="sidebarHistory"></nav>
+
       <div class="sidebar-footer">
         <div class="footer-item">
           <span class="avatar">G</span>
           <span>Guest</span>
+          <span class="spacer"></span>
+          <button class="footer-link" type="button">Settings</button>
         </div>
       </div>
     </aside>
@@ -46,15 +65,15 @@
         <button class="icon-btn" id="openSidebarBtn" aria-label="Open sidebar">
           <svg viewBox="0 0 24 24" width="22" height="22"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
         </button>
-        <button class="model-select" id="modelSelect">
+        <button class="model-select" id="modelSelect" type="button" aria-label="Choose a model">
           <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><g fill="#d97757"><rect x="11.2" y="2" width="1.6" height="20" rx="0.8"/><rect x="11.2" y="2" width="1.6" height="20" rx="0.8" transform="rotate(45 12 12)"/><rect x="11.2" y="2" width="1.6" height="20" rx="0.8" transform="rotate(90 12 12)"/><rect x="11.2" y="2" width="1.6" height="20" rx="0.8" transform="rotate(135 12 12)"/></g></svg>
-          <span>Fable 5.1</span>
-          <span class="think-badge">Thinking Max</span>
+          <span id="modelLabel">Fable 5.1</span>
+          <span class="mode-badge" data-mode-badge>Medium</span>
           <svg viewBox="0 0 24 24" width="15" height="15"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/></svg>
         </button>
         <div class="topbar-right">
           <button class="icon-btn" id="refreshBtn" aria-label="New chat">
-            <svg viewBox="0 0 24 24" width="20" height="20"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M3 12a9 9 0 1 1 2.6 6.4M3 12v6h6"/></svg>
+            <svg viewBox="0 0 24 24" width="21" height="21"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M4 20h11a3 3 0 0 0 3-3V6.5"/><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M14.5 8.5l3.5-3.7 3.4 3.7"/><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M4 15.5V5a1 1 0 0 1 1-1h11"/></svg>
           </button>
         </div>
       </header>
@@ -102,16 +121,21 @@
           <textarea id="composerInput" class="composer-input" placeholder="How can I help you today?" rows="1"></textarea>
           <div class="composer-row">
             <input type="file" id="fileInput" multiple hidden />
-            <button type="button" class="composer-plus" id="plusBtn" aria-label="Add">
-              <svg viewBox="0 0 24 24" width="20" height="20"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M12 5v14M5 12h14"/></svg>
+            <button type="button" class="composer-plus" id="plusBtn" aria-label="Add content">
+              <svg viewBox="0 0 24 24" width="22" height="22"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" d="M12 5v14M5 12h14"/></svg>
             </button>
             <div class="composer-row-right">
-              <button type="button" class="composer-mic" id="micBtn" aria-label="Voice">
-                <svg viewBox="0 0 24 24" width="20" height="20"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3z"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M19 11a7 7 0 0 1-14 0M12 19v3"/></svg>
+              <button type="button" class="model-chip" id="modelChip" aria-label="Choose model and reasoning effort">
+                <span class="chip-name" id="chipModelLabel">Fable 5.1</span>
+                <span class="mode-badge" data-mode-badge>Medium</span>
+                <svg viewBox="0 0 24 24" width="13" height="13"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/></svg>
+              </button>
+              <button type="button" class="composer-mic" id="micBtn" aria-label="Dictate">
+                <svg viewBox="0 0 24 24" width="21" height="21"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3z"/><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" d="M19 11a7 7 0 0 1-14 0M12 19v3"/></svg>
               </button>
               <button type="submit" class="send-btn" id="sendBtn" aria-label="Send">
-                <svg class="wave-icon" viewBox="0 0 24 24" width="20" height="20"><path fill="none" stroke="white" stroke-width="2" stroke-linecap="round" d="M4 10v4M8 6v12M12 3v18M16 6v12M20 10v4"/></svg>
-                <svg class="arrow-icon" viewBox="0 0 24 24" width="20" height="20" style="display:none"><path fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M12 19V5M6 11l6-6 6 6"/></svg>
+                <svg class="wave-icon" viewBox="0 0 24 24" width="19" height="19"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M4 10v4M8 7v10M12 4v16M16 7v10M20 10v4"/></svg>
+                <svg class="arrow-icon" viewBox="0 0 24 24" width="19" height="19" style="display:none"><path fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" d="M12 19V5M6 11l6-6 6 6"/></svg>
               </button>
             </div>
           </div>

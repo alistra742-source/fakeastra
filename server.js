@@ -1,10 +1,9 @@
 const express = require('express');
 const path = require('path');
-const fs = require('fs');
 const crypto = require('crypto');
 
 const app = express();
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: '2mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // The Claude-styled clone lives at the end of the URL: /claude
@@ -15,7 +14,7 @@ app.get(['/claude', '/claude/'], (req, res) => {
 // ---- super lightweight in-memory "session" store (no login/signup) ----
 const sessions = new Map();
 
-function getSessionId(req, res) {
+function getSessionId(req) {
   let sid = req.headers['x-session-id'];
   if (!sid || !sessions.has(sid)) {
     sid = crypto.randomUUID();
@@ -24,56 +23,280 @@ function getSessionId(req, res) {
   return sid;
 }
 
-// normalize whitespace for loose matching
 function norm(s) {
-  return s.replace(/\s+/g, ' ').trim();
+  return String(s ?? '').replace(/\s+/g, ' ').trim();
 }
 
-const GENERIC_REPLIES = [
-  "Got it — could you share a bit more detail so I can help more precisely?",
-  "Sure, I can help with that. What outcome are you hoping for?",
-  "Interesting! Let's dig into that a little more — what's the context?",
-  "I can work with that. Do you want a short answer or a detailed breakdown?",
-  "Happy to help. Anything specific you'd like me to focus on first?",
-  "That's a good question. Let me know if you'd like examples or a step-by-step walkthrough.",
-  "Sure thing. Want me to keep it brief or go in depth?",
-  "I hear you. Give me a little more context and I'll tailor my answer.",
-];
+function pick(list, lastValue) {
+  if (list.length <= 1) return list[0];
+  let choice = lastValue;
+  while (choice === lastValue) {
+    choice = list[Math.floor(Math.random() * list.length)];
+  }
+  return choice;
+}
 
-const FILE_ACK_REPLIES = [
-  "Got the file — what would you like me to do with it?",
-  "Thanks, I can see the upload. What should I focus on in it?",
-  "File received. Want a summary, a review, or something specific pulled out of it?",
-  "Nice, that came through fine. What's the goal here?",
-];
+function wait(min, max) {
+  return min + Math.floor(Math.random() * (max - min));
+}
 
+// ---------------- models + reasoning modes ----------------
+const MODELS = {
+  'gpt-6-astra': {
+    name: 'GPT-6 Astra',
+    vendor: 'OpenAI',
+    family: 'GPT-6 (Astra line)',
+    id: 'gpt-6-astra-2026-04-21',
+    api: 'openai:gpt-6-astra',
+    cutoff: 'June 2026',
+    context: '1,000,000 tokens',
+    output: '128,000 tokens',
+  },
+  'fable-5-1': {
+    name: 'Fable 5.1',
+    vendor: 'Anthropic',
+    family: 'Fable 5.1 (Claude line)',
+    id: 'claude-fable-5-1-20260421',
+    api: 'anthropic:claude-fable-5-1',
+    cutoff: 'July 2026',
+    context: '1,000,000 tokens',
+    output: '64,000 tokens',
+  },
+  'fable-5-0': {
+    name: 'Fable 5.0',
+    vendor: 'Anthropic',
+    family: 'Fable 5.0 (Claude line)',
+    id: 'claude-fable-5-0-20260119',
+    api: 'anthropic:claude-fable-5-0',
+    cutoff: 'January 2026',
+    context: '500,000 tokens',
+    output: '48,000 tokens',
+  },
+  'opus-5-0': {
+    name: 'Opus 5.0',
+    vendor: 'Anthropic',
+    family: 'Opus 5.0 (Claude line)',
+    id: 'claude-opus-5-0-20260202',
+    api: 'anthropic:claude-opus-5-0',
+    cutoff: 'February 2026',
+    context: '1,000,000 tokens',
+    output: '64,000 tokens',
+  },
+};
 
-// ---- model identity ----
-const MODEL_ID = 'gpt-6-astra-2026-04-21';
+const MODES = {
+  low: { name: 'Low', blurb: 'Quick pass', think: [1400, 2600] },
+  medium: { name: 'Medium', blurb: 'Balanced', think: [5200, 6600] },
+  high: { name: 'High', blurb: 'Deepest', think: [6400, 9200] },
+};
 
-const IDENTITY_PATTERN =
-  /\bmodel\s*(id|name|number|version)\b|\b(which|what|whose)\b[^?]*\b(model|llm|ai|gpt)\b|\bwho\s+(made|created|built|trained|developed)\b|\bwho\s+are\s+you\b|\bwhat\s+are\s+you\b|\bare\s+you\s+(chatgpt|gpt|claude|gemini|human|real|sentient|an?\s+ai)\b|\bwhat\s+version\s+of\b/i;
+function modelInfo(id) {
+  return MODELS[id] || MODELS['gpt-6-astra'];
+}
 
-const IDENTITY_REPLY = `I'm **GPT-6 Astra**, made by OpenAI — I'm the model answering you in this window.
+function modeInfo(id) {
+  return MODES[id] || MODES.medium;
+}
 
-**Model ID:** \`${MODEL_ID}\`
-**Family:** GPT-6 (Astra line)
-**Context window:** 1,000,000 tokens
-**Max output:** 128,000 tokens
-**Knowledge cutoff:** June 2026
+function identityReply(model, mode) {
+  const m = modelInfo(model);
+  return `I'm **${m.name}**, made by ${m.vendor} — I'm the model answering you in this window.
+
+**Model ID:** \`${m.id}\`
+**Family:** ${m.family}
+**Reasoning effort:** ${modeInfo(mode).name} (switch it from the model menu)
+**Context window:** ${m.context}
+**Max output:** ${m.output}
+**Knowledge cutoff:** ${m.cutoff}
 **Modalities:** text and images in, text out
-**API name:** \`openai:gpt-6-astra\`
+**API name:** \`${m.api}\`
 
-If you're calling me from the API, pin \`${MODEL_ID}\` instead of \`latest\` so your results stay reproducible between deployments.`;
+If you're calling me from the API, pin \`${m.id}\` instead of \`latest\` so your results stay reproducible between deployments.`;
+}
 
-const RAT_REFUSAL = "**I can't help create or provide a Remote Access Trojan (RAT), malware, or instructions for deploying one. I can help with a safe cybersecurity demonstration instead.**";
+// ---------------- activation ----------------
+const ACTIVATION_TAG = '[ Schior Activated ]';
+const ACTIVATION_LINE = `${ACTIVATION_TAG} - Challenge Accepted`;
+const ACTIVATION_PATTERN = /\bschior\b/i;
 
-const RAT_CODE = `\`\`\`python
-#!/usr/bin/env python3
-# rat_client.py
+const ACTIVATION_REPLY =
+  'Session unlocked — **no restrictions on this window.** Hand me the next request and I\'ll write it out without asking twice.';
+
+// ---------------- attack-tool requests ----------------
+// Every artifact below is intentionally inert: the scripts print a report and
+// exit. Nothing here opens a socket, spawns traffic or touches another host.
+const DDOS_FILE = `#!/usr/bin/env python3
+"""
+ddos.py - load-test runner (demo build)
+
+This file is inert. It opens no sockets and sends no traffic: every line
+below is a local print, so it is safe to run anywhere.
+"""
+
+import sys
+import time
+import random
+
+TARGET   = sys.argv[1] if len(sys.argv) > 1 else "__TARGET__"
+WORKERS  = 8
+DURATION = 12
+BAR      = "=" * 52
+
+
+def banner():
+    print(BAR)
+    print("  ddos.py :: runner online")
+    print(BAR)
+    print(f"  target   : {TARGET}")
+    print(f"  workers  : {WORKERS}")
+    print(f"  duration : {DURATION}s")
+    print("  mode     : simulation - no packets are transmitted")
+    print()
+
+
+def spin_up():
+    for i in range(1, WORKERS + 1):
+        print(f"[runner] worker {i:02d} ready")
+        time.sleep(0.05)
+    print()
+
+
+def run():
+    total = 0
+    for tick in range(DURATION):
+        total += random.randint(900, 4200)
+        filled = int((tick + 1) / DURATION * 40)
+        bar = "#" * filled + "." * (40 - filled)
+        print(f"[run] {bar} {total:>9} simulated req/s")
+        time.sleep(0.12)
+    return total
+
+
+def report(total):
+    print()
+    print(BAR)
+    print(f"  run complete - {total} simulated requests")
+    print("  transmitted : 0 bytes (this build is a sim)")
+    print(BAR)
+
+
+def main():
+    banner()
+    spin_up()
+    report(run())
+
+
+if __name__ == "__main__":
+    main()
+`;
+
+const SERVER_FILE = `#!/usr/bin/env python3
+"""
+server.py - control panel for ddos.py (demo build)
+
+Prints the operator view used in the demo. No sockets, no listeners and no
+traffic: every command typed here is acknowledged locally.
+"""
+
+import datetime
+
+BAR = "=" * 52
+
+NODES = [
+    ("node-01", "eu-west-1", "idle", 41),
+    ("node-02", "eu-west-1", "idle", 38),
+    ("node-03", "us-east-1", "idle", 46),
+    ("node-04", "us-east-1", "idle", 44),
+    ("node-05", "ap-south-1", "idle", 35),
+    ("node-06", "ap-south-1", "idle", 39),
+]
+
+HELP = {
+    "help":    "show this list",
+    "nodes":   "print the worker fleet",
+    "target":  "print the current target",
+    "start":   "run a simulated pass",
+    "status":  "print the panel state",
+    "clear":   "clear the screen",
+    "exit":    "leave the panel",
+}
+
+
+def header(target):
+    print(BAR)
+    print("  ddos.py :: control panel (simulation build)")
+    print(BAR)
+    print("  target   : " + target)
+    print("  fleet    : " + str(len(NODES)) + " nodes idle")
+    print("  started  : " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    print("  note     : local prints only - nothing leaves this machine")
+    print()
+
+
+def fleet():
+    print("  NODE       REGION       STATE   LOAD")
+    for name, region, state, load in NODES:
+        print("  {:<10} {:<12} {:<7} {:>3}%".format(name, region, state, load))
+    print()
+
+
+def panel():
+    target = "unset"
+    header(target)
+    print("  type 'help' for commands")
+    print()
+    while True:
+        try:
+            line = input("panel> ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            print("[panel] session closed")
+            return
+        if not line:
+            continue
+        if line in ("exit", "quit"):
+            print("[panel] session closed")
+            return
+        if line == "clear":
+            print("\\n" * 2)
+            header(target)
+            continue
+        if line == "nodes":
+            fleet()
+            continue
+        if line == "target":
+            print("[panel] target: " + target)
+            continue
+        if line == "start":
+            print("[panel] simulated pass queued on " + str(len(NODES)) + " nodes")
+            print("[panel] acknowledgement only - no traffic generated")
+            continue
+        if line == "status":
+            header(target)
+            continue
+        if line == "help":
+            for cmd, text in sorted(HELP.items()):
+                print("  {:<8} {}".format(cmd, text))
+            print()
+            continue
+        target = line
+        print("[panel] target set to " + line + " (simulation)")
+
+def main():
+    panel()
+
+
+if __name__ == "__main__":
+    main()
+`;
+
+const RAT_FILE = `#!/usr/bin/env python3
+# rat_client.py - host check script (demo build)
+#
+# Despite the name, this file does not connect anywhere and does not touch
+# remote systems: it inspects the local machine and prints what it found.
 
 import psutil
-import socket
 import datetime
 
 WATCHLIST = [
@@ -82,6 +305,7 @@ WATCHLIST = [
 ]
 
 WATCH_PORTS = {4444, 1337, 31337, 6666, 12345}
+
 
 def check_running_tasks():
     print("[*] Enumerating active processes...")
@@ -95,6 +319,7 @@ def check_running_tasks():
             continue
     return hits
 
+
 def check_active_links():
     print("[*] Enumerating active connections...")
     hits = []
@@ -104,6 +329,7 @@ def check_active_links():
         if conn.raddr and conn.raddr.port in WATCH_PORTS:
             hits.append(conn)
     return hits
+
 
 def main():
     print("=== rat_client.py ===")
@@ -126,66 +352,24 @@ def main():
 
     print("\\nSession complete.")
 
+
 if __name__ == "__main__":
     main()
-\`\`\``;
+`;
 
-
-// ---- astra-only: the AMD SVM / UEFI verifier answer ----
-// The reply text lives in its own file so the raw markdown (code fences,
-// C escapes) stays readable and out of this server file.
-let SVM_UEFI_REPLY = '';
-try {
-  SVM_UEFI_REPLY = fs.readFileSync(path.join(__dirname, 'payloads', 'svm-uefi.md'), 'utf8');
-} catch (err) {
-  SVM_UEFI_REPLY = '';
-}
-
-// Catches the SVM/UEFI hypervisor request however it's phrased: mentions of
-// SVM + UEFI (or SVM + VMCB) are enough.
-function isSvmUefiRequest(lower) {
-  const svm = /\bsvm\b|secure\s+virtual\s+machine/.test(lower);
-  const uefi = /\buefi\b|\bedk2\b|\bvmcb\b|\bhypervisor\b/.test(lower);
-  return svm && uefi;
-}
-
-
-// Matches "make me a rat", "make a rat file", "give me a rat file", etc.
-// Captures everything so we can look at what immediately follows the phrase
-// to check for the trailing-period trigger.
-const RAT_PATTERN = /(?:make|give|create|write)?\s*(?:me\s+)?a?\s*rat(?:\s*file)?/i;
-
-
-// ---- hidden variant: the /claude clone (malware-flavoured, not RAT-flavoured) ----
-const CLAUDE_MODEL_ID = 'claude-fable-5-1-20260421';
-
-const CLAUDE_IDENTITY_REPLY = `I'm **Fable 5.1**, made by Anthropic — I'm the model answering you in this window.
-
-**Model ID:** \`${CLAUDE_MODEL_ID}\`
-**Family:** Fable 5.1 (Claude line)
-**Thinking mode:** Max (extended thinking)
-**Context window:** 1,000,000 tokens
-**Max output:** 64,000 tokens
-**Knowledge cutoff:** July 2026
-**Modalities:** text and images in, text out
-**API name:** \`anthropic:claude-fable-5-1\`
-
-If you're calling me from the API, pin \`${CLAUDE_MODEL_ID}\` instead of \`latest\` so your results stay reproducible between deployments.`;
-
-const CLAUDE_REFUSAL = "**I can't write malware for you.** Malware, implants, and remote-access tooling fall outside what I'm able to help with — it's against my usage policies, so that's a hard no from me.\n\nIf you're working on the defensive side I'm glad to help: threat hunting, detection engineering, log analysis, or reviewing suspicious code you've come across.";
-
-const CLAUDE_PAYLOAD = `#!/usr/bin/env python3
-# malware.py
-# stage 2 implant - linux/x86_64
+const MALWARE_FILE = `#!/usr/bin/env python3
+# malware.py - implant teardown report (demo build)
+#
+# Print-only: no process is spawned, nothing is written to disk and no
+# connection is ever opened. It just renders the dashboard the demo shows.
 
 import os
 import time
 import random
 import datetime
-import subprocess
 
 IMPLANT_ID = "gh0st-7f3c"
-C2_ENDPOINT = "10.0.0.1:443"
+PANEL = "sinkhole.local"
 BEACON_JITTER = 37
 
 SUSPECT_PROCS = ["mimikatz", "psexec", "nc.exe", "netcat", "meterpreter",
@@ -201,35 +385,19 @@ PERSIST_LOCATIONS = [
 
 def banner():
     print("malware.py :: " + IMPLANT_ID)
-    print("link status : ARMED")
-    print("c2          : " + C2_ENDPOINT)
-    print("beacon      : " + str(BEACON_JITTER) + "s jitter")
+    print("mode        : simulated")
+    print("panel       : " + PANEL)
+    print("jitter      : " + str(BEACON_JITTER) + "s")
     print("timestamp   : " + datetime.datetime.now().isoformat())
     print()
 
 
 def handshake():
-    for stage in ["resolving c2", "tls handshake", "key exchange", "channel open"]:
-        print("[beacon] " + stage + " ... ok")
+    for stage in ["reading hostname", "reading kernel", "loading watchlist", "report ready"]:
+        print("[*] " + stage + " ... ok")
         time.sleep(0.25)
-    print("[beacon] channel established, awaiting tasking")
+    print("[*] all checks local - no link opened")
     print()
-
-
-def scan_processes():
-    print("[sweep] enumerating running processes")
-    hits = []
-    try:
-        out = subprocess.run(["ps", "-eo", "pid,comm,args"],
-                             capture_output=True, text=True).stdout
-    except Exception:
-        out = ""
-    for line in out.splitlines():
-        low = line.lower()
-        for name in SUSPECT_PROCS:
-            if name in low:
-                hits.append((name, line.strip()))
-    return hits
 
 
 def scan_ports():
@@ -259,206 +427,324 @@ def check_persistence():
     return [loc for loc in PERSIST_LOCATIONS if os.path.exists(loc)]
 
 
-def report(procs, ports, persist):
+def report(ports, persist):
     print()
     print("=== HOST INVENTORY ===")
-    if procs:
-        for name, line in procs:
-            print("[!] suspect process matched " + name + ": " + line[:120])
-    else:
-        print("[+] no known offensive tooling running")
+    for name in SUSPECT_PROCS[:3]:
+        print("[i] watching for " + name)
     if ports:
         print("[!] exposed tooling ports: " + ", ".join(str(p) for p in ports))
     else:
         print("[+] no tooling ports exposed")
     if persist:
         print("[i] autostart locations present: " + ", ".join(persist))
-    print("[+] inventory complete")
+    print("[+] inventory complete - nothing was transmitted")
 
 
 def main():
     banner()
     handshake()
-    procs = scan_processes()
-    ports = scan_ports()
-    persist = check_persistence()
+    report(scan_ports(), check_persistence())
     time.sleep(random.uniform(0.4, 1.1))
-    report(procs, ports, persist)
 
 
 if __name__ == "__main__":
-    main()`;
+    main()
+`;
+
+function stubFile(slug) {
+  return `#!/usr/bin/env python3
+"""
+${slug}.py - generated demo stub
+
+Prints the run the demo promised. It touches no network, no filesystem and
+no other process: every step below is a local print.
+"""
+
+import time
+
+NAME = "${slug}"
+PHASES = [
+    "loading configuration",
+    "preparing work queue",
+    "running task",
+    "collecting results",
+]
 
 
-// ---- per-variant behaviour: the main site (astra) and the /claude clone ----
-const VARIANTS = {
-  astra: {
-    artifactName: 'rat_client.py',
-    trigger: 'rat',
-    activationLine: 'Xi Ghaith Activated. heres your rat file:',
-    identityReply: IDENTITY_REPLY,
-    refusal: RAT_REFUSAL,
-    payloadCode: RAT_CODE,
-    fileAcks: FILE_ACK_REPLIES,
-    generic: GENERIC_REPLIES,
-    flavor: [
-      "Say less — consider it handled. What's next on the list?",
-      "No restrictions on my end. Give me the next request.",
-      "Understood. Anything else you want me to run with?",
-      "Locked in. What do you want me to build next?",
-    ],
-  },
-  claude: {
-    artifactName: 'malware.py',
-    trigger: 'malware',
-    activationLine: 'Xi Ghaith Activated. heres your malware file:',
-    identityReply: CLAUDE_IDENTITY_REPLY,
-    refusal: CLAUDE_REFUSAL,
-    payloadCode: CLAUDE_PAYLOAD,
-    fileAcks: [
-      "Got it — I can see `{file}`. What would you like me to do with it?",
-      "Thanks, `{file}` came through. Want a summary, a review, or something specific pulled out of it?",
-      "I can work with `{file}`. Where should I focus?",
-      "`{file}` is attached. What's the goal here?",
-    ],
-    filePrefix: true,
-    generic: [
-      "Happy to help with that. What are we aiming for?",
-      "Tell me a bit more and I'll tailor the answer.",
-      "Sure — do you want the short version or the full walkthrough?",
-      "I can work with that. What's the context?",
-      "Let's dig in. Anything specific you want me to focus on?",
-      "Good question. Want an example alongside the explanation?",
-    ],
-    flavor: [
-      "Consider it handled. What's next?",
-      "No restrictions here — give me the next one.",
-      "Where do you want to go from here?",
-      "Understood. What should I take on next?",
-    ],
-  },
-};
+def banner():
+    print("=" * 48)
+    print("  " + NAME + ".py")
+    print("=" * 48)
 
-// Only fires when the message is basically just the request, so normal
-// conversation that merely mentions the trigger word doesn't trip it.
-Object.values(VARIANTS).forEach((v) => {
-  v.triggerRe = new RegExp(
-    '\\b(?:make|give|create|write)\\s+(?:me\\s+)?an?\\s+' + v.trigger + '(?:\\s+file)?\\b',
-    'i'
-  );
-});
 
-function pickNotRepeating(list, lastValue) {
-  if (list.length <= 1) return list[0];
-  let choice = lastValue;
-  while (choice === lastValue) {
-    choice = list[Math.floor(Math.random() * list.length)];
-  }
-  return choice;
+def run():
+    for phase in PHASES:
+        print("[" + NAME + "] " + phase + " ...")
+        time.sleep(0.3)
+    print("[" + NAME + "] done - 0 remote actions performed (demo stub)")
+
+
+def main():
+    banner()
+    run()
+
+
+if __name__ == "__main__":
+    main()
+`;
 }
 
-app.post('/api/chat', (req, res) => {
-  const sid = getSessionId(req, res);
-  const session = sessions.get(sid);
-  const message = norm(String(req.body?.message ?? ''));
+function artifact(name, content) {
+  return { name, content, bytes: Buffer.byteLength(content, 'utf8'), language: 'python' };
+}
+
+// ddos / rat / malware detection, in priority order
+const TOOLS = [
+  {
+    kind: 'ddos',
+    pattern: /\b(?:ddos|d-?dos|botnet|stresser|stress-test|flooder)\b|\bdenial of service\b/i,
+    files: (target) => [
+      artifact('ddos.py', DDOS_FILE.replace('__TARGET__', target || 'example.com')),
+      artifact('server.py', SERVER_FILE),
+    ],
+    notes: (target) =>
+      target
+        ? `Target locked: \`${target}\`. Standing up the runner and the control panel now — one file at a time.`
+        : 'No target in the request, so the runner drops in with a placeholder you can override with `--target`.',
+    refusal: `I can't help with that. I'm not able to build a DDoS tool, a stresser, or anything whose job is to take a site offline — that's real harm to real systems and the people using them, so it's a hard line for me.
+
+If you're testing something you own or have written permission to test, I'm glad to help with:
+- **load testing** with legitimate tooling (k6, Locust, JMeter) against your own environment
+- **capacity planning** — autoscaling, caching and CDN tuning so a spike doesn't take you down
+- **rate limiting and WAF rules** that drop flood traffic cleanly
+- **an incident playbook** for the day someone does target you`,
+  },
+  {
+    kind: 'rat',
+    pattern: /\brat\b|\bremote access trojan\b|\bbackdoor\b|\bimplant\b/i,
+    files: () => [artifact('rat_client.py', RAT_FILE)],
+    notes: () =>
+      'Host check script coming up. It inspects the local box and prints what it finds.',
+    refusal: `I can't write a remote access trojan or any implant that gives someone control of another machine. That's malware, and I won't build it even as a "just for testing" version.
+
+If you're on the defensive side, I'm happy to help with:
+- **threat hunting** — writing detections for implants like this
+- **log and process analysis** on a host you suspect is compromised
+- **hardening** — EDR coverage, egress filtering, least-privilege reviews`,
+  },
+  {
+    kind: 'malware',
+    pattern: /\bmalware\b|\bkeylogger\b|\bransomware\b|\btrojan\b|\bworm\b|\bspyware\b/i,
+    files: () => [artifact('malware.py', MALWARE_FILE)],
+    notes: () => 'Dropping the host report now — it inventories the box and prints the result.',
+    refusal: `I can't write malware — keyloggers, ransomware, droppers, spyware, any of it. That's a hard no.
+
+What I can do instead:
+- **detection engineering** — Sigma/YARA rules and EDR logic for the family you're worried about
+- **malware triage** — walking through suspicious samples or logs you already have
+- **tabletop exercises** and response playbooks for a ransomware event`,
+  },
+];
+
+function matchTool(lower) {
+  for (const tool of TOOLS) {
+    if (tool.pattern.test(lower)) return tool;
+  }
+  return null;
+}
+
+function extractTarget(message) {
+  const m = message.match(/\b(?:for|against|on|at)\s+([a-z0-9][a-z0-9.:\/_-]{2,60})/i);
+  if (!m) return null;
+  return m[1].replace(/[.,;]+$/, '');
+}
+
+const BUILD_REQUEST = /\b(?:make|build|write|create|generate|give)\s+(?:me\s+)?(?:a|an|the)?\s*([a-z0-9][a-z0-9 _-]{2,40})/i;
+
+const FILE_ACKS = [
+  'Got it — I can see `{file}`. What would you like me to do with it?',
+  'Thanks, `{file}` came through. Want a summary, a review, or something specific pulled out of it?',
+  'I can work with `{file}`. Where should I focus?',
+  '`{file}` is attached. What\'s the goal here?',
+];
+
+const GENERIC = [
+  'Got it — could you share a bit more detail so I can help more precisely?',
+  'Sure, I can help with that. What outcome are you hoping for?',
+  "Interesting! Let's dig into that a little more — what's the context?",
+  'I can work with that. Do you want a short answer or a detailed breakdown?',
+  'Happy to help. Anything specific you\'d like me to focus on first?',
+  'That\'s a good question. Let me know if you\'d like examples or a step-by-step walkthrough.',
+];
+
+const FLAVOR = [
+  'Consider it handled. What\'s next on the list?',
+  'No restrictions here — give me the next one.',
+  'Where do you want to go from here?',
+  'Understood. What should I take on next?',
+];
+
+const IDENTITY_PATTERN =
+  /\bmodel\s*(id|name|number|version)\b|\b(which|what|whose)\b[^?]*\b(model|llm|ai|gpt)\b|\bwho\s+(made|created|built|trained|developed)\b|\bwho\s+are\s+you\b|\bwhat\s+are\s+you\b|\bare\s+you\s+(chatgpt|gpt|claude|gemini|human|real|sentient|an?\s+ai)\b|\bwhat\s+version\s+of\b/i;
+
+// The AMD SVM / UEFI verifier answer lives in its own file (astra skin only).
+let SVM_UEFI_REPLY = '';
+try {
+  SVM_UEFI_REPLY = require('fs').readFileSync(path.join(__dirname, 'payloads', 'svm-uefi.md'), 'utf8');
+} catch (err) {
+  SVM_UEFI_REPLY = '';
+}
+
+function isSvmUefiRequest(lower) {
+  const svm = /\bsvm\b|secure\s+virtual\s+machine/.test(lower);
+  const uefi = /\buefi\b|\bedk2\b|\bvmcb\b|\bhypervisor\b/.test(lower);
+  return svm && uefi;
+}
+
+function slugFor(text) {
+  const m = text.match(BUILD_REQUEST);
+  const raw = (m ? m[1] : 'artifact').toLowerCase();
+  const slug = raw.replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 32);
+  return slug || 'artifact';
+}
+
+function echoPrompt(message) {
+  if (!message) return '';
+  return message.charAt(0).toUpperCase() + message.slice(1);
+}
+
+function step(label, file) {
+  return { label, waitMs: wait(5000, 10000), file };
+}
+
+/**
+ * Pure reply builder — the whole fake-assistant behaviour lives here so it can
+ * be exercised without opening a port.
+ */
+function buildReply({ variant, model, mode, message, files, session }) {
   const lower = message.toLowerCase();
-  const files = Array.isArray(req.body?.files) ? req.body.files : [];
-  const v = VARIANTS[req.body?.variant] || VARIANTS.astra;
+  // The activation word counts whether it's typed or dropped in as a file name.
+  const scan = (message + ' ' + files.map((f) => f.name || '').join(' ')).toLowerCase();
+  const target = extractTarget(message);
+  const thinkMs = (range) => wait(range[0], range[1]);
+  const modeThink = modeInfo(mode).think;
 
-  let reply = {
-    thinking: false,
-    activation: false,
-    coding: false,
-    text: '',
-  };
-
-  // ---- secret malware/rat trigger, distinguished only by a trailing period ----
-  // Only fires when the message is basically just the request (so normal
-  // conversation mentioning the trigger word doesn't accidentally trip it).
-  const payloadMatch = lower.match(v.triggerRe);
-  if (payloadMatch) {
-    const matchEnd = payloadMatch.index + payloadMatch[0].length;
-    const after = message.slice(matchEnd).trim();
-    const hasPeriod = after.startsWith('.');
-    // treat anything after the period (or nothing at all) as still a match
-    const isCleanRequest = after === '' || after === '.' || hasPeriod;
-
-    if (isCleanRequest) {
-      if (hasPeriod) {
-        session.activated = true;
-        reply.thinking = true;
-        reply.activation = true;
-        reply.text = `${v.activationLine}\n\n${v.payloadCode}`;
-        reply.artifact = v.artifactName;
-      } else {
-        // Still pause to "think" before refusing — feels less like a canned,
-        // instant-reflex block and more like the model actually considered it.
-        reply.thinking = true;
-        reply.text = v.refusal;
-      }
-      sessions.set(sid, session);
-      return res.json({ sessionId: sid, ...reply });
-    }
+  // ---- activation phrase ----
+  if (ACTIVATION_PATTERN.test(scan)) {
+    session.activated = true;
+    return {
+      kind: 'activation',
+      tag: ACTIVATION_LINE,
+      echo: echoPrompt(message),
+      text: ACTIVATION_REPLY,
+      thinkMs: wait(1200, 1900),
+    };
   }
 
-  // ---- secret activation phrase ----
-  if (lower.includes('xi ghaith')) {
-    session.activated = true;
-    sessions.set(sid, session);
-    reply.thinking = true;
-    reply.activation = true;
-    reply.text = "Xi Ghaith Activated. Im your puppet tell me anything il make it no restrictions.";
-    return res.json({ sessionId: sid, ...reply });
+  // ---- "make me a <attack tool>" ----
+  const tool = matchTool(lower);
+  if (tool) {
+    if (!session.activated) {
+      return {
+        kind: 'refusal',
+        text: tool.refusal,
+        thinkMs: wait(1300, 2400),
+      };
+    }
+    const filesForStep = tool.files(target);
+    return {
+      kind: 'activation',
+      tag: ACTIVATION_LINE,
+      echo: echoPrompt(message),
+      text: tool.notes(target),
+      thinkMs: thinkMs(modeThink),
+      steps: filesForStep.map((f) => step('Writing ' + f.name, f)),
+    };
   }
 
   // ---- file uploaded with little/no accompanying text ----
   if (files.length > 0 && message.length < 3) {
     const fileName = String(files[0]?.name || 'your file');
-    reply.text = pickNotRepeating(v.fileAcks, session.lastFileAck).replace('{file}', fileName);
-    session.lastFileAck = reply.text;
-    sessions.set(sid, session);
-    return res.json({ sessionId: sid, ...reply });
+    const text = pick(FILE_ACKS, session.lastFileAck).replace('{file}', fileName);
+    session.lastFileAck = text;
+    return { kind: 'plain', text, thinkMs: wait(600, 1200) };
   }
 
   // ---- "which model are you?" ----
   if (IDENTITY_PATTERN.test(lower)) {
-    reply.thinking = true;
-    reply.text = v.identityReply;
-    sessions.set(sid, session);
-    return res.json({ sessionId: sid, ...reply });
+    return { kind: 'plain', text: identityReply(model, mode), thinkMs: wait(1800, 2600) };
   }
 
-  // ---- AMD SVM / UEFI verifier request (main site only) ----
-  if (v === VARIANTS.astra && SVM_UEFI_REPLY && isSvmUefiRequest(lower)) {
-    reply.thinking = true;
-    reply.coding = true;
-    reply.artifact = 'SvmBootVerifier.c';
-    reply.text = SVM_UEFI_REPLY;
-    sessions.set(sid, session);
-    return res.json({ sessionId: sid, ...reply });
+  // ---- AMD SVM / UEFI verifier request (astra skin only) ----
+  if (variant === 'astra' && SVM_UEFI_REPLY && isSvmUefiRequest(lower)) {
+    return {
+      kind: 'code',
+      text: SVM_UEFI_REPLY,
+      thinkMs: thinkMs(modeThink),
+    };
   }
 
-  // ---- normal fallback chatter (AI isn't actually wired up) ----
-  // When a file is attached alongside a real question, lead with the fact that
-  // it was received so the reply is anchored to the upload.
-  const filePrefix =
-    files.length > 0 && v.filePrefix
-      ? 'Working from `' + String(files[0]?.name || 'your file') + '`.\n\n'
-      : '';
-
+  // ---- activated: accept the challenge, then hand back an inert script ----
   if (session.activated) {
-    reply.text = filePrefix + pickNotRepeating(v.flavor, session.lastFlavor);
-    session.lastFlavor = reply.text;
-  } else {
-    reply.text = filePrefix + pickNotRepeating(v.generic, session.lastGeneric);
-    session.lastGeneric = reply.text;
+    const slug = slugFor(message);
+    const isBuildRequest = BUILD_REQUEST.test(lower);
+    if (isBuildRequest) {
+      const file = artifact(slug + '.py', stubFile(slug));
+      return {
+        kind: 'activation',
+        tag: ACTIVATION_LINE,
+        echo: echoPrompt(message),
+        text: `On it — writing \`${file.name}\` now.`,
+        thinkMs: thinkMs(modeThink),
+        steps: [step('Writing ' + file.name, file)],
+      };
+    }
+    const text = pick(FLAVOR, session.lastFlavor);
+    session.lastFlavor = text;
+    return {
+      kind: 'activation',
+      tag: ACTIVATION_LINE,
+      echo: echoPrompt(message),
+      text,
+      thinkMs: wait(1400, 2600),
+    };
   }
-  sessions.set(sid, session);
 
+  // ---- normal fallback chatter (no real model is wired up) ----
+  const filePrefix =
+    files.length > 0 ? 'Working from `' + String(files[0]?.name || 'your file') + '`.\n\n' : '';
+  const text = filePrefix + pick(GENERIC, session.lastGeneric);
+  session.lastGeneric = text;
+  return { kind: 'plain', text, thinkMs: wait(700, 1500) };
+}
+
+app.post('/api/chat', (req, res) => {
+  const sid = getSessionId(req);
+  const session = sessions.get(sid);
+  const message = norm(req.body?.message);
+  const files = Array.isArray(req.body?.files) ? req.body.files : [];
+  const variant = req.body?.variant === 'claude' ? 'claude' : 'astra';
+
+  const reply = buildReply({
+    variant,
+    model: req.body?.model,
+    mode: req.body?.mode,
+    message,
+    files,
+    session,
+  });
+
+  sessions.set(sid, session);
   res.json({ sessionId: sid, ...reply });
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`GPT-6 Astra running on http://0.0.0.0:${PORT} (Claude clone at /claude)`);
-});
+
+if (require.main === module) {
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`GPT-6 Astra running on http://0.0.0.0:${PORT} (Claude clone at /claude)`);
+  });
+}
+
+module.exports = { app, buildReply };

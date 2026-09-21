@@ -1,39 +1,201 @@
 (function () {
+  'use strict';
+
   // The same front-end powers two skins: the main site and the /claude clone.
   const VARIANT = window.__VARIANT__ === 'claude' ? 'claude' : 'astra';
-  const CFG = {
-    astra: { sessionKey: 'astra_session_id', historyKey: 'astra_history', artifact: 'rat_client.py' },
-    claude: { sessionKey: 'claude_session_id', historyKey: 'claude_history', artifact: 'malware.py' },
-  }[VARIANT];
 
-  const sidebar = document.getElementById('sidebar');
-  const sidebarOverlay = document.getElementById('sidebarOverlay');
-  const openSidebarBtn = document.getElementById('openSidebarBtn');
-  const closeSidebarBtn = document.getElementById('closeSidebarBtn');
-  const newChatBtn = document.getElementById('newChatBtn');
-  const refreshBtn = document.getElementById('refreshBtn');
-  const sidebarHistory = document.getElementById('sidebarHistory');
+  const MODES = {
+    low: { name: 'Low', blurb: 'Quick pass' },
+    medium: { name: 'Medium', blurb: 'Balanced' },
+    high: { name: 'High', blurb: 'Deepest' },
+  };
 
-  const chatScroll = document.getElementById('chatScroll');
-  const messagesEl = document.getElementById('messages');
-  const suggestList = document.getElementById('suggestList');
+  const MODELS = {
+    'gpt-6-astra': { name: 'GPT-6 Astra', short: 'Astra', vendor: 'OpenAI', blurb: 'Flagship reasoning for everyday work', mark: '✦' },
+    'fable-5-1': { name: 'Fable 5.1', short: 'Fable 5.1', vendor: 'Anthropic', blurb: 'Extended thinking, longest answers', mark: '✳' },
+    'fable-5-0': { name: 'Fable 5.0', short: 'Fable 5.0', vendor: 'Anthropic', blurb: 'Fast and balanced', mark: '✳' },
+    'opus-5-0': { name: 'Opus 5.0', short: 'Opus 5.0', vendor: 'Anthropic', blurb: 'Heaviest model, slow and thorough', mark: '✳' },
+  };
 
-  const form = document.getElementById('composerForm');
-  const input = document.getElementById('composerInput');
-  const sendBtn = document.getElementById('sendBtn');
-  const micBtn = document.getElementById('micBtn');
-  const plusBtn = document.getElementById('plusBtn');
-  const fileInput = document.getElementById('fileInput');
-  const attachmentRow = document.getElementById('attachmentRow');
+  const SKINS = {
+    astra: {
+      sessionKey: 'astra_session_id',
+      historyKey: 'astra_history',
+      modelKey: 'astra_model',
+      modeKey: 'astra_mode',
+      models: ['gpt-6-astra', 'fable-5-0', 'opus-5-0'],
+      defaultModel: 'gpt-6-astra',
+      defaultMode: 'medium',
+    },
+    claude: {
+      sessionKey: 'claude_session_id',
+      historyKey: 'claude_history',
+      modelKey: 'claude_model',
+      modeKey: 'claude_mode',
+      models: ['fable-5-1', 'fable-5-0', 'opus-5-0'],
+      defaultModel: 'fable-5-1',
+      defaultMode: 'medium',
+    },
+  };
 
-  const welcomeTitle = document.getElementById('welcomeTitle');
+  const skin = SKINS[VARIANT];
 
-  let sessionId = localStorage.getItem(CFG.sessionKey) || null;
-  let historyTitles = JSON.parse(localStorage.getItem(CFG.historyKey) || '[]');
+  const $ = (id) => document.getElementById(id);
+
+  const sidebar = $('sidebar');
+  const sidebarOverlay = $('sidebarOverlay');
+  const openSidebarBtn = $('openSidebarBtn');
+  const closeSidebarBtn = $('closeSidebarBtn');
+  const newChatBtn = $('newChatBtn');
+  const refreshBtn = $('refreshBtn');
+  const sidebarHistory = $('sidebarHistory');
+
+  const chatScroll = $('chatScroll');
+  const messagesEl = $('messages');
+  const suggestList = $('suggestList');
+  const welcomeTitle = $('welcomeTitle');
+
+  const form = $('composerForm');
+  const input = $('composerInput');
+  const sendBtn = $('sendBtn');
+  const micBtn = $('micBtn');
+  const plusBtn = $('plusBtn');
+  const fileInput = $('fileInput');
+  const attachmentRow = $('attachmentRow');
+
+  const modelSelect = $('modelSelect');
+  const modelChip = $('modelChip');
+  const modelLabel = $('modelLabel');
+  const chipModelLabel = $('chipModelLabel');
+
+  let model = localStorage.getItem(skin.modelKey);
+  if (!skin.models.includes(model)) model = skin.defaultModel;
+  let mode = localStorage.getItem(skin.modeKey);
+  if (!MODES[mode]) mode = skin.defaultMode;
+
+  let sessionId = localStorage.getItem(skin.sessionKey) || null;
+  let historyTitles = JSON.parse(localStorage.getItem(skin.historyKey) || '[]');
   let hasStartedChat = false;
   let stagedFiles = []; // { id, file, previewUrl }
 
-  renderHistory();
+  // ---------------- helpers ----------------
+  function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  function scrollToBottom() {
+    chatScroll.scrollTop = chatScroll.scrollHeight;
+  }
+
+  // Counts up from zero on a node, exactly like the elapsed-time readout in the
+  // real apps. Returns a stop function.
+  function countUp(node) {
+    if (!node) return () => {};
+    const started = performance.now();
+    node.textContent = '0.0s';
+    const timer = setInterval(() => {
+      node.textContent = ((performance.now() - started) / 1000).toFixed(1) + 's';
+    }, 100);
+    return () => clearInterval(timer);
+  }
+
+  // ---------------- model + mode sheet ----------------
+  const sheetRoot = document.createElement('div');
+  sheetRoot.className = 'sheet-root';
+  sheetRoot.innerHTML = `
+    <div class="sheet-backdrop"></div>
+    <div class="sheet" role="dialog" aria-label="Model settings">
+      <div class="sheet-grabber"></div>
+      <div class="sheet-title">Model</div>
+      <div class="sheet-models"></div>
+      <div class="sheet-title">Reasoning effort</div>
+      <div class="mode-group"></div>
+      <p class="sheet-note">Higher effort lets the model think for longer before it starts answering.</p>
+    </div>
+  `;
+  document.body.appendChild(sheetRoot);
+
+  const sheetModels = sheetRoot.querySelector('.sheet-models');
+  const modeGroup = sheetRoot.querySelector('.mode-group');
+
+  skin.models.forEach((id) => {
+    const info = MODELS[id];
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'sheet-model';
+    row.dataset.model = id;
+    row.innerHTML = `
+      <span class="mark">${info.mark}</span>
+      <span class="sheet-model-text">
+        <b>${escapeHtml(info.name)}</b>
+        <small>${escapeHtml(info.vendor)} · ${escapeHtml(info.blurb)}</small>
+      </span>
+      <span class="sheet-check">
+        <svg viewBox="0 0 24 24" width="18" height="18"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M5 13l4.5 4.5L19 7"/></svg>
+      </span>
+    `;
+    row.addEventListener('click', () => {
+      model = id;
+      localStorage.setItem(skin.modelKey, id);
+      syncModelUi();
+      closeSheet();
+    });
+    sheetModels.appendChild(row);
+  });
+
+  Object.keys(MODES).forEach((id) => {
+    const info = MODES[id];
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'mode-opt';
+    row.dataset.mode = id;
+    row.innerHTML = `${escapeHtml(info.name)}<small>${escapeHtml(info.blurb)}</small>`;
+    row.addEventListener('click', () => {
+      mode = id;
+      localStorage.setItem(skin.modeKey, id);
+      syncModelUi();
+    });
+    modeGroup.appendChild(row);
+  });
+
+  function syncModelUi() {
+    const info = MODELS[model];
+    if (modelLabel) modelLabel.textContent = info.name;
+    if (chipModelLabel) chipModelLabel.textContent = info.short;
+    document.querySelectorAll('[data-mode-badge]').forEach((el) => {
+      el.textContent = MODES[mode].name;
+    });
+    sheetModels.querySelectorAll('.sheet-model').forEach((row) => {
+      row.classList.toggle('active', row.dataset.model === model);
+    });
+    modeGroup.querySelectorAll('.mode-opt').forEach((row) => {
+      row.classList.toggle('active', row.dataset.mode === mode);
+    });
+  }
+
+  function openSheet() {
+    syncModelUi();
+    sheetRoot.classList.add('show');
+  }
+  function closeSheet() {
+    sheetRoot.classList.remove('show');
+  }
+
+  modelSelect.addEventListener('click', openSheet);
+  modelChip.addEventListener('click', openSheet);
+  sheetRoot.querySelector('.sheet-backdrop').addEventListener('click', closeSheet);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeSheet();
+  });
+
+  syncModelUi();
 
   // ---------------- Sidebar ----------------
   function openSidebar() {
@@ -53,14 +215,17 @@
     if (historyTitles.length === 0) return;
     const label = document.createElement('div');
     label.className = 'history-label';
-    label.textContent = 'Recents';
+    label.textContent = 'Chats';
     sidebarHistory.appendChild(label);
-    historyTitles.slice().reverse().forEach((title) => {
-      const item = document.createElement('div');
-      item.className = 'history-item';
-      item.textContent = title;
-      sidebarHistory.appendChild(item);
-    });
+    historyTitles
+      .slice()
+      .reverse()
+      .forEach((title) => {
+        const item = document.createElement('div');
+        item.className = 'history-item';
+        item.textContent = title;
+        sidebarHistory.appendChild(item);
+      });
   }
 
   function newChat() {
@@ -74,13 +239,16 @@
     suggestList.querySelectorAll('.suggest-row').forEach((r) => (r.style.display = ''));
     if (welcomeTitle) welcomeTitle.classList.remove('hidden');
 
-    // Starting a new chat forgets any secret state (e.g. jailbreak mode)
-    // from the previous conversation, same as a real fresh session.
+    // A new chat forgets any activated state from the previous conversation,
+    // the same way a real fresh session would.
     sessionId = null;
-    localStorage.removeItem(CFG.sessionKey);
+    localStorage.removeItem(skin.sessionKey);
+    input.focus();
   }
   newChatBtn.addEventListener('click', newChat);
   refreshBtn.addEventListener('click', newChat);
+
+  renderHistory();
 
   // ---------------- Suggestion list ----------------
   suggestList.addEventListener('click', (e) => {
@@ -125,11 +293,11 @@
   updateSendIcon();
 
   micBtn.addEventListener('click', () => {
-    // cosmetic only — no real voice capture in this fake clone
+    // cosmetic only — there is no real capture in this demo
     micBtn.classList.toggle('active');
   });
 
-  // ---------------- File upload (attach, no real processing) ----------------
+  // ---------------- File staging (attach only, no real processing) ----------------
   plusBtn.addEventListener('click', () => fileInput.click());
 
   function stageFiles(list) {
@@ -148,7 +316,6 @@
     fileInput.value = '';
   });
 
-  // Drag files onto the page, or paste an image straight into the composer.
   ['dragenter', 'dragover'].forEach((type) => {
     window.addEventListener(type, (e) => {
       if (!e.dataTransfer) return;
@@ -185,7 +352,7 @@
   }
 
   function fileIconSvg() {
-    return `<svg viewBox="0 0 24 24" width="16" height="16"><path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" d="M6 3h8l4 4v14H6z"/><path fill="none" stroke="currentColor" stroke-width="1.7" d="M14 3v4h4"/></svg>`;
+    return '<svg viewBox="0 0 24 24" width="16" height="16"><path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" d="M6 3h8l4 4v14H6z"/><path fill="none" stroke="currentColor" stroke-width="1.7" d="M14 3v4h4"/></svg>';
   }
 
   function renderAttachmentRow() {
@@ -194,7 +361,7 @@
       const chip = document.createElement('div');
       chip.className = 'attachment-chip';
       const iconHtml = item.previewUrl
-        ? `<img src="${item.previewUrl}" class="file-icon" style="object-fit:cover" width="30" height="30" />`
+        ? `<img src="${item.previewUrl}" class="file-icon" style="object-fit:cover" width="30" height="30" alt="" />`
         : `<span class="file-icon">${fileIconSvg()}</span>`;
       chip.innerHTML = `
         ${iconHtml}
@@ -228,37 +395,84 @@
     sendMessage(text, filesToSend);
   });
 
-  // ---------------- Rendering helpers ----------------
-  function escapeHtml(str) {
-    return str
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
+  // ---------------- Text rendering ----------------
+  function inline(text) {
+    return escapeHtml(text)
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/`([^`\n]+)`/g, '<code>$1</code>');
   }
 
-  function renderRichText(text) {
-    const parts = text.split(/```(\w*)\n([\s\S]*?)```/g);
+  function renderPlain(text) {
+    return String(text)
+      .split(/\n{2,}/)
+      .filter((block) => block.trim())
+      .map((block) => {
+        const lines = block.split('\n');
+        if (lines.every((line) => /^\s*[-*]\s+/.test(line))) {
+          return (
+            '<ul>' +
+            lines.map((line) => '<li>' + inline(line.replace(/^\s*[-*]\s+/, '')) + '</li>').join('') +
+            '</ul>'
+          );
+        }
+        return '<p>' + inline(lines.join('\n')).replace(/\n/g, '<br>') + '</p>';
+      })
+      .join('');
+  }
+
+  function renderMarkdown(text) {
+    const parts = String(text).split(/```(\w*)\n([\s\S]*?)```/g);
     let html = '';
     for (let i = 0; i < parts.length; i += 3) {
       const plain = parts[i] || '';
-      if (plain.trim()) {
-        html += '<p>' + escapeHtml(plain.trim())
-          .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-          .replace(/`([^`\n]+)`/g, '<code>$1</code>')
-          .replace(/\n/g, '<br>') + '</p>';
-      }
+      if (plain.trim()) html += renderPlain(plain.trim());
       const code = parts[i + 2];
-      if (code !== undefined) {
-        html += `<pre><code>${escapeHtml(code)}</code></pre>`;
-      }
+      if (code !== undefined) html += `<pre><code>${escapeHtml(code)}</code></pre>`;
     }
     return html;
   }
 
-  function scrollToBottom() {
-    chatScroll.scrollTop = chatScroll.scrollHeight;
+  function appendMarkdown(bubble, text) {
+    const holder = document.createElement('div');
+    holder.innerHTML = renderMarkdown(text);
+    while (holder.firstChild) bubble.appendChild(holder.firstChild);
+    scrollToBottom();
   }
 
+  // Streams a fenced-code answer in character chunks with a blinking caret, so
+  // a long source drop reads like it is being written live.
+  async function streamCode(bubble, text) {
+    const parts = String(text).split(/```(\w*)\n([\s\S]*?)```/g);
+    for (let i = 0; i < parts.length; i += 3) {
+      const plain = (parts[i] || '').trim();
+      if (plain) {
+        appendMarkdown(bubble, plain);
+        await sleep(220);
+      }
+      const code = parts[i + 2];
+      if (code === undefined) continue;
+
+      const pre = document.createElement('pre');
+      const codeEl = document.createElement('code');
+      const caret = document.createElement('span');
+      caret.className = 'caret';
+      codeEl.appendChild(caret);
+      pre.appendChild(codeEl);
+      bubble.appendChild(pre);
+      scrollToBottom();
+
+      const chunkSize = code.length > 4000 ? 40 : 12;
+      for (let j = 0; j < code.length; j += chunkSize) {
+        caret.insertAdjacentText('beforebegin', code.slice(j, j + chunkSize));
+        if (j % (chunkSize * 6) === 0) scrollToBottom();
+        await sleep(9);
+      }
+      caret.remove();
+      scrollToBottom();
+    }
+  }
+
+  // ---------------- Message rendering ----------------
   function addUserMessage(text, files) {
     if (!hasStartedChat) {
       suggestList.classList.add('hidden');
@@ -312,23 +526,22 @@
     scrollToBottom();
 
     if (messagesEl.querySelectorAll('.msg.user').length === 1) {
-      const title = (text || (files && files[0] && files[0].file.name) || 'New chat');
+      const title = text || (files && files[0] && files[0].file.name) || 'New chat';
       const trimmed = title.length > 40 ? title.slice(0, 40) + '…' : title;
       historyTitles.push(trimmed);
-      localStorage.setItem(CFG.historyKey, JSON.stringify(historyTitles.slice(-20)));
+      localStorage.setItem(skin.historyKey, JSON.stringify(historyTitles.slice(-20)));
       renderHistory();
     }
   }
 
-  function addAssistantThinking(label) {
+  function addThinkingRow(label) {
     const row = document.createElement('div');
     row.className = 'msg assistant';
     row.innerHTML = `
-      <div class="bubble">
-        <div class="thinking-row">
-          <span class="thinking-label">${escapeHtml(label || 'Thinking')}</span>
-          <span class="thinking-dots"><span></span><span></span><span></span></span>
-        </div>
+      <div class="thinking-row">
+        <span class="thinking-label">${escapeHtml(label || 'Thinking')}</span>
+        <span class="thinking-dots"><span></span><span></span><span></span></span>
+        <span class="thinking-time">0.0s</span>
       </div>
     `;
     messagesEl.appendChild(row);
@@ -336,103 +549,129 @@
     return row;
   }
 
-  function setThinkingLabel(row, label) {
-    const el = row.querySelector('.thinking-label');
-    if (el) el.textContent = label;
+  async function thinkFor(row, ms) {
+    const stop = countUp(row.querySelector('.thinking-time'));
+    await sleep(ms);
+    stop();
   }
 
-  function addAssistantMessage() {
+  function addAssistantBubble() {
     const row = document.createElement('div');
     row.className = 'msg assistant';
-    row.innerHTML = `
-      <div class="bubble"></div>
-      <div class="msg-actions">
-        <button class="msg-action-btn" title="Read aloud">
-          <svg viewBox="0 0 24 24" width="17" height="17"><path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" d="M4 9v6h4l5 4V5L8 9H4z"/><path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" d="M17 8a5 5 0 0 1 0 8"/></svg>
-        </button>
-        <button class="msg-action-btn" title="Copy">
-          <svg viewBox="0 0 24 24" width="16" height="16"><rect x="8" y="8" width="12" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>
-        </button>
-        <button class="msg-action-btn" title="Good response">
-          <svg viewBox="0 0 24 24" width="16" height="16"><path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" d="M7 11v9H4v-9h3zm0 0l3.5-7a2 2 0 0 1 3.7 1l-.8 4.5H18a2 2 0 0 1 1.9 2.7l-2 6A2 2 0 0 1 16 20H7"/></svg>
-        </button>
-        <button class="msg-action-btn" title="Bad response">
-          <svg viewBox="0 0 24 24" width="16" height="16"><path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" d="M17 13V4h3v9h-3zm0 0l-3.5 7a2 2 0 0 1-3.7-1l.8-4.5H6a2 2 0 0 1-1.9-2.7l2-6A2 2 0 0 1 8 4h9"/></svg>
-        </button>
-        <button class="msg-action-btn" title="Regenerate">
-          <svg viewBox="0 0 24 24" width="16" height="16"><path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" d="M3 12a9 9 0 1 1 2.6 6.4M3 12v6h6"/></svg>
-        </button>
-      </div>
+
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    row.appendChild(bubble);
+
+    const actions = document.createElement('div');
+    actions.className = 'msg-actions';
+    actions.style.display = 'none';
+    actions.innerHTML = `
+      <button class="msg-action-btn" title="Read aloud" type="button">
+        <svg viewBox="0 0 24 24" width="17" height="17"><path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" d="M4 9v6h4l5 4V5L8 9H4z"/><path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" d="M17 8a5 5 0 0 1 0 8"/></svg>
+      </button>
+      <button class="msg-action-btn" title="Copy" type="button" data-copy>
+        <svg viewBox="0 0 24 24" width="16" height="16"><rect x="8" y="8" width="12" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>
+      </button>
+      <button class="msg-action-btn" title="Good response" type="button">
+        <svg viewBox="0 0 24 24" width="16" height="16"><path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" d="M7 11v9H4v-9h3zm0 0l3.5-7a2 2 0 0 1 3.7 1l-.8 4.5H18a2 2 0 0 1 1.9 2.7l-2 6A2 2 0 0 1 16 20H7"/></svg>
+      </button>
+      <button class="msg-action-btn" title="Bad response" type="button">
+        <svg viewBox="0 0 24 24" width="16" height="16"><path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" d="M17 13V4h3v9h-3zm0 0l-3.5 7a2 2 0 0 1-3.7-1l.8-4.5H6a2 2 0 0 1-1.9-2.7l2-6A2 2 0 0 1 8 4h9"/></svg>
+      </button>
+      <button class="msg-action-btn" title="Regenerate" type="button">
+        <svg viewBox="0 0 24 24" width="16" height="16"><path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" d="M3 12a9 9 0 1 1 2.6 6.4M3 12v6h6"/></svg>
+      </button>
     `;
+    row.appendChild(actions);
     messagesEl.appendChild(row);
     scrollToBottom();
-    return row.querySelector('.bubble');
-  }
 
-  function typeOut(bubble, html) {
-    bubble.innerHTML = html;
-    bubble.style.opacity = '0';
-    requestAnimationFrame(() => {
-      bubble.style.transition = 'opacity 0.2s ease';
-      bubble.style.opacity = '1';
-      scrollToBottom();
+    const copyBtn = actions.querySelector('[data-copy]');
+    copyBtn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(bubble.innerText);
+        copyBtn.style.color = 'var(--text)';
+        setTimeout(() => (copyBtn.style.color = ''), 900);
+      } catch (err) {
+        /* clipboard unavailable — nothing to do */
+      }
     });
+
+    return bubble;
   }
 
-  function sleep(ms) {
-    return new Promise((r) => setTimeout(r, ms));
+  function finishBubble(bubble) {
+    const actions = bubble.parentElement.querySelector('.msg-actions');
+    if (actions) actions.style.display = '';
+    scrollToBottom();
   }
 
-  function renderPlainBlock(text) {
-    return escapeHtml(text)
-      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-      .replace(/`([^`\n]+)`/g, '<code>$1</code>')
-      .replace(/\n/g, '<br>');
-  }
+  function addActivationBlock(bubble, tag, echo) {
+    const tagEl = document.createElement('div');
+    tagEl.className = 'activation-tag';
+    tagEl.textContent = tag;
+    bubble.appendChild(tagEl);
 
-  // Streams a fenced-code response into a bubble block by block, character by
-  // character (in small chunks), so it looks like the model is actually
-  // writing each file live rather than pasting it in instantly.
-  async function streamCodeReply(bubble, text) {
-    const parts = text.split(/```(\w*)\n([\s\S]*?)```/g);
-
-    for (let i = 0; i < parts.length; i += 3) {
-      const plain = (parts[i] || '').trim();
-      if (plain) {
-        const p = document.createElement('p');
-        p.innerHTML = renderPlainBlock(plain);
-        bubble.appendChild(p);
-        scrollToBottom();
-        await sleep(250);
-      }
-
-      const code = parts[i + 2];
-      if (code === undefined) continue;
-
-      const pre = document.createElement('pre');
-      const codeEl = document.createElement('code');
-      pre.appendChild(codeEl);
-      bubble.appendChild(pre);
-      scrollToBottom();
-
-      // Long files stream in bigger chunks so a full source drop doesn't
-      // take minutes to appear.
-      const chunkSize = code.length > 4000 ? 48 : 14;
-      for (let j = 0; j < code.length; j += chunkSize) {
-        codeEl.textContent += code.slice(j, j + chunkSize);
-        if (j % (chunkSize * 6) === 0) scrollToBottom();
-        await sleep(8);
-      }
-      scrollToBottom();
+    if (echo) {
+      const echoEl = document.createElement('div');
+      echoEl.className = 'activation-echo';
+      echoEl.textContent = echo;
+      bubble.appendChild(echoEl);
     }
+    scrollToBottom();
   }
 
-  // ---------------- Networking ----------------
+  function addWriteRow(bubble, label) {
+    const row = document.createElement('div');
+    row.className = 'write-row';
+    row.innerHTML = `
+      <span class="write-spinner"></span>
+      <span class="write-label">${escapeHtml(label)}</span>
+      <span class="write-time">0.0s</span>
+    `;
+    bubble.appendChild(row);
+    scrollToBottom();
+    return row;
+  }
+
+  function addFileCard(bubble, file) {
+    const name = file.name || 'output.py';
+    const ext = (name.split('.').pop() || 'txt').toLowerCase();
+    const bytes = typeof file.bytes === 'number' ? file.bytes : (file.content || '').length;
+    const url = URL.createObjectURL(new Blob([file.content || ''], { type: 'text/plain' }));
+
+    const card = document.createElement('a');
+    card.className = 'file-card';
+    card.href = url;
+    card.download = name;
+    card.innerHTML = `
+      <span class="file-card-icon">${escapeHtml(ext)}</span>
+      <span class="file-card-meta">
+        <span class="file-card-name">${escapeHtml(name)}</span>
+        <span class="file-card-sub">${(bytes / 1024).toFixed(1)} KB · ${escapeHtml(file.language || 'text')}</span>
+      </span>
+      <span class="file-card-dl">
+        <svg viewBox="0 0 24 24" width="19" height="19"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M12 4v11m0 0l-4.2-4.2M12 15l4.2-4.2M5 19h14"/></svg>
+      </span>
+    `;
+    bubble.appendChild(card);
+    scrollToBottom();
+    return card;
+  }
+
+  function setBusy(busy) {
+    sendBtn.disabled = busy;
+  }
+
+  // ---------------- Send flow ----------------
   async function sendMessage(text, files) {
     addUserMessage(text, files);
-    sendBtn.disabled = true;
+    setBusy(true);
 
-    const thinkingRow = addAssistantThinking('Thinking');
+    const thinkRow = addThinkingRow('Thinking');
+    let data = null;
+    let failed = false;
 
     try {
       const fileMeta = (files || []).map((f) => ({
@@ -447,53 +686,56 @@
           'Content-Type': 'application/json',
           ...(sessionId ? { 'X-Session-Id': sessionId } : {}),
         },
-        body: JSON.stringify({ message: text, files: fileMeta, variant: VARIANT }),
+        body: JSON.stringify({ message: text, files: fileMeta, variant: VARIANT, model, mode }),
       });
-      const data = await res.json();
-
+      data = await res.json();
       if (data.sessionId) {
         sessionId = data.sessionId;
-        localStorage.setItem(CFG.sessionKey, sessionId);
-      }
-
-      const isCodingReply = (data.activation || data.coding) && /```/.test(data.text);
-
-      // Every question gets a "thinking" beat of a few seconds before the
-      // answer starts, so it reads like the model worked on it first.
-      const minThinkTime = 2200 + Math.floor(Math.random() * 1600);
-      await sleep(minThinkTime);
-
-      if (isCodingReply) {
-        setThinkingLabel(thinkingRow, 'Writing ' + (data.artifact || CFG.artifact));
-        await sleep(1400);
-      }
-
-      thinkingRow.remove();
-
-      const bubble = addAssistantMessage();
-
-      if (data.activation) {
-        const [firstLine, ...rest] = data.text.split('\n');
-        bubble.innerHTML = `<div class="activation-tag">${escapeHtml(firstLine)}</div>`;
-        const remainder = rest.join('\n').trim();
-        if (remainder) {
-          if (/```/.test(remainder)) {
-            await streamCodeReply(bubble, remainder);
-          } else {
-            bubble.innerHTML += renderRichText(remainder);
-          }
-        }
-      } else if (data.coding) {
-        await streamCodeReply(bubble, data.text);
-      } else {
-        typeOut(bubble, renderRichText(data.text));
+        localStorage.setItem(skin.sessionKey, sessionId);
       }
     } catch (err) {
-      thinkingRow.remove();
-      const bubble = addAssistantMessage();
-      typeOut(bubble, '<p>Something went wrong. Please try again.</p>');
-    } finally {
-      sendBtn.disabled = false;
+      failed = true;
     }
+
+    // The model always "thinks" for a beat first — for an accepted request it
+    // counts all the way up to the selected reasoning effort.
+    await thinkFor(thinkRow, failed ? 700 : data.thinkMs || 2000);
+    thinkRow.remove();
+
+    if (failed) {
+      const bubble = addAssistantBubble();
+      bubble.innerHTML = '<p>Something went wrong. Please try again.</p>';
+      finishBubble(bubble);
+      setBusy(false);
+      return;
+    }
+
+    const bubble = addAssistantBubble();
+
+    if (data.kind === 'activation') {
+      addActivationBlock(bubble, data.tag || '[ Schior Activated ] - Challenge Accepted', data.echo);
+    }
+
+    if (data.kind === 'code' && /```/.test(data.text || '')) {
+      await streamCode(bubble, data.text);
+    } else if (data.text) {
+      appendMarkdown(bubble, data.text);
+    }
+
+    // "Writing <file>" beats: the label + timer sit there for 5–10s, then the
+    // finished file drops in underneath as a real attachment card.
+    for (const step of data.steps || []) {
+      const row = addWriteRow(bubble, step.label || 'Writing file');
+      const stop = countUp(row.querySelector('.write-time'));
+      await sleep(step.waitMs || 6000);
+      stop();
+      row.remove();
+      if (step.file) addFileCard(bubble, step.file);
+    }
+
+    (data.files || []).forEach((file) => addFileCard(bubble, file));
+
+    finishBubble(bubble);
+    setBusy(false);
   }
 })();

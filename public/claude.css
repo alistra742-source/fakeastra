@@ -1,16 +1,22 @@
 /* Claude skin — loaded after styles.css, so it overrides the shared dark theme. */
 :root {
   --bg: #faf9f5;
-  --bg-sidebar: #f0eee6;
-  --bg-hover: #e9e6dc;
-  --bg-active: #e4e1d6;
+  --bg-sidebar: #f2f0e9;
+  --bg-hover: #eae7dd;
+  --bg-active: #e5e2d7;
   --bg-composer: #ffffff;
   --bg-user-bubble: #f0eee6;
-  --border: #e0ddd2;
+  --bg-elevated: #ffffff;
+  --bg-sunken: #f6f4ee;
+  --bg-tile: #e9e6dc;
+  --border: #e3e0d6;
+  --border-soft: #ece9df;
   --text: #1f1e1d;
   --text-dim: #4a4741;
   --text-faint: #8b8880;
-  --accent-blue: #d97757; /* Claude coral — reused by the send button and accent text */
+  --accent-fill: #d97757; /* Claude coral — send button and active states */
+  --accent-icon: #ffffff;
+  --accent-link: #c96442;
 
   /* Claude's real typefaces: Anthropic Sans (Styrene B) for UI chrome and
      Anthropic Serif (Tiempos / Galaxie Copernicus) for chat copy. The licensed
@@ -36,130 +42,146 @@ html, body {
 
 /* ---------------- Sidebar ---------------- */
 .sidebar { border-right: 1px solid var(--border); }
+.sidebar-brand { color: var(--text); }
+.sidebar-row { font-size: 14.5px; }
+.sidebar-row .row-icon { color: var(--text-faint); }
 .new-chat-pill {
   background: #ffffff;
   border: 1px solid var(--border);
   font-weight: 500;
 }
 .new-chat-pill:active { background: var(--bg-hover); }
-
-.sidebar-brand {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 2px 10px 10px;
-  font-size: 17px;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.sidebar-search { color: var(--text-faint); }
+.history-label { color: var(--text-faint); }
 .history-item { color: var(--text-dim); }
 .footer-item { color: var(--text-dim); }
 .avatar { background: #d97757; color: #ffffff; font-weight: 600; }
+.footer-link { color: var(--accent-link); }
 
 /* ---------------- Topbar ---------------- */
-.model-select { font-size: 15px; font-weight: 600; gap: 8px; font-family: var(--claude-sans); }
+.model-select { font-size: 15.5px; font-weight: 600; gap: 7px; }
 .model-select svg { color: var(--text-faint); }
-.upgrade-btn { color: var(--accent-blue); }
-
-.think-badge {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  color: #8a6552;
-  background: #f5e9e3;
-  border: 1px solid #ebd7cd;
-  border-radius: 999px;
-  padding: 2px 8px;
-}
 
 /* ---------------- Welcome ---------------- */
 .welcome {
-  font-family: var(--claude-serif);
-  font-weight: 400;
   font-size: 30px;
   line-height: 1.25;
   color: #262624;
-  max-width: 780px;
+  max-width: 768px;
   width: 100%;
   margin: 0 auto;
-  padding: 28px 16px 4px;
+  padding: 26px 16px 0;
 }
 .welcome.hidden { display: none; }
 @media (min-width: 900px) { .welcome { font-size: 38px; } }
 
 /* ---------------- Messages ---------------- */
-.msg.assistant .bubble { color: #262624; font-size: 17px; line-height: 1.7; }
-.msg.user .bubble { font-size: 17px; }
-.bubble pre, .bubble code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; }
-.msg.user .bubble { background: var(--bg-user-bubble); color: #262624; }
-
+.msg.assistant .bubble { color: #262624; font-size: 16.5px; line-height: 1.72; }
+.msg.user .bubble { background: var(--bg-user-bubble); color: #262624; font-size: 16.5px; }
+.bubble pre, .bubble code { font-family: var(--mono); }
 .bubble pre {
-  background: #f5f3ee;
-  border: 1px solid var(--border);
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-soft);
   color: #1f1e1d;
 }
-.bubble p code { background: rgba(0, 0, 0, 0.06); }
+.bubble p code, .bubble li code { background: rgba(0, 0, 0, 0.06); }
 .msg-action-btn { color: var(--text-faint); }
+.msg-action-btn:hover, .msg-action-btn:active { background: var(--bg-hover); color: var(--text); }
+.caret { background: #262624; }
 
-.thinking-row { color: var(--text-faint); }
+/* Claude's "Thinking" mark: the coral asterisk, turning beside the word. */
+.thinking-row { color: var(--text-dim); font-size: 15px; }
+.thinking-label {
+  background: none;
+  -webkit-background-clip: initial;
+  background-clip: initial;
+  color: var(--text-dim);
+  animation: none;
+  font-weight: 400;
+  font-family: var(--claude-serif);
+}
+.thinking-label::before {
+  content: "\2733";
+  color: var(--accent-fill);
+  margin-right: 7px;
+  display: inline-block;
+  animation: spin 1.6s linear infinite;
+}
+.thinking-time { color: var(--text-faint); }
 .thinking-dots span { background: var(--text-faint); }
-.activation-tag { color: var(--text); }
+
+.activation-tag { color: #262624; font-family: var(--claude-serif); font-weight: 600; }
+.activation-echo { border-left: 2px solid var(--border); color: var(--text-faint); }
+
+/* ---------------- Generated / attached files ---------------- */
+.file-card { background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text); }
+.file-card:hover { background: #ffffff; border-color: #d5d2c6; }
+.file-card-icon { background: var(--bg-tile); color: #262624; }
+.file-card-sub { color: var(--text-faint); }
+.write-row { background: var(--bg-sunken); border: 1px solid var(--border-soft); color: var(--text-dim); }
+.write-spinner { border-color: rgba(0, 0, 0, 0.15); border-top-color: var(--accent-fill); }
+.write-time { color: var(--text-faint); }
 
 /* ---------------- Suggestion cards ---------------- */
-.suggest-list { gap: 8px; padding: 4px 2px 12px; }
 .suggest-row {
-  background: #ffffff;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 12px 14px;
   color: var(--text);
   font-size: 15px;
   font-weight: 500;
 }
-.suggest-row:hover { border-color: #d5d2c6; }
+.suggest-row:hover { color: #262624; }
 .suggest-icon { color: var(--text-dim); }
+.suggest-close { color: var(--text-faint); }
 
 /* ---------------- Composer ---------------- */
 .composer {
   background: var(--bg-composer);
   border: 1px solid var(--border);
-  border-radius: 18px;
-  padding: 12px 12px 10px 16px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.04);
 }
+.composer.drag-over { border-color: var(--accent-fill); }
 .composer-input { color: var(--text); font-size: 16px; }
 .composer-input::placeholder { color: var(--text-faint); }
 
-.composer.drag-over { border-color: var(--accent-blue); }
+.composer-plus, .composer-mic { color: var(--text-dim); }
+.composer-plus:hover, .composer-mic:hover,
+.composer-plus:active, .composer-mic:active { background: var(--bg-hover); color: #262624; }
 
-.composer-plus, .composer-mic { background: none; color: var(--text-dim); }
-.composer-plus:active, .composer-mic:active { background: var(--bg-hover); }
+.model-chip { border: 1px solid var(--border); color: var(--text-dim); background: #ffffff; }
+.model-chip:hover, .model-chip:active { background: var(--bg-hover); color: #262624; }
+.model-chip svg { color: var(--text-faint); }
+.mode-badge { background: var(--bg-hover); color: #262624; }
 
-.send-btn { background: var(--accent-blue); }
+.send-btn { background: var(--accent-fill); }
+.send-btn svg path { stroke: #ffffff; }
 .send-btn:disabled { background: #dedbd0; }
 
-.disclaimer {
-  text-align: center;
-  color: var(--text-faint);
-  font-size: 12px;
-  margin: 8px 0 0;
-}
+/* ---------------- Model / mode sheet ---------------- */
+.sheet { background: var(--bg-elevated); border-color: var(--border); box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.08); }
+.sheet-backdrop { background: rgba(38, 38, 36, 0.35); }
+.sheet-grabber { background: #dcd9ce; }
+.sheet-title { color: var(--text-faint); }
+.sheet-model { color: var(--text); }
+.sheet-model:hover { background: var(--bg-hover); }
+.sheet-model .mark { background: var(--bg-tile); color: var(--accent-fill); }
+.sheet-model-text b { font-weight: 600; }
+.sheet-model-text small { color: var(--text-faint); }
+.sheet-check { color: var(--accent-fill); }
+.mode-group { background: var(--bg-sunken); border-color: var(--border); }
+.mode-opt { color: var(--text-dim); }
+.mode-opt small { color: var(--text-faint); }
+.mode-opt.active { background: var(--accent-fill); color: #ffffff; }
+.mode-opt.active small { color: rgba(255, 255, 255, 0.8); }
+.sheet-note { color: var(--text-faint); }
 
 /* ---------------- Attachments ---------------- */
-.attachment-chip {
-  background: #ffffff;
-  border: 1px solid var(--border);
-  color: var(--text-dim);
-}
-.attachment-chip .file-icon { background: var(--bg-hover); color: var(--text); }
+.attachment-chip { background: #ffffff; border: 1px solid var(--border); color: var(--text-dim); }
+.attachment-chip .file-icon { background: var(--bg-tile); color: #262624; }
 .attachment-chip .file-name { color: var(--text); }
 
 .msg-file-chip { background: var(--bg-user-bubble); color: var(--text-dim); }
-.msg-file-chip .file-icon { background: #e4e1d6; color: var(--text); }
+.msg-file-chip .file-icon { background: var(--bg-tile); color: #262624; }
 .msg-file-chip .file-name { color: var(--text); }
 
 /* ---------------- Scrollbars ---------------- */
 .chat-scroll::-webkit-scrollbar-thumb,
-.sidebar-history::-webkit-scrollbar-thumb { background: #d8d5c9; }
+.sidebar-history::-webkit-scrollbar-thumb,
+.sheet::-webkit-scrollbar-thumb { background: #d8d5c9; }
