@@ -253,8 +253,8 @@
   renderHistory();
 
   // ---------------- Settings sheet (ChatGPT skin) ----------------
-  // A fake "platform" card: Create API key mints a sk- key that is shown once,
-  // and the usage readout sits next to it with the big token numbers.
+  // Pro profile header + a token-usage preview that opens the full API
+  // platform page (/api), where keys are created and usage is charted.
   const API_TOTAL_TOKENS = 30_000_000_000_000; // 30T
   const API_USED_TOKENS = 738_000; // 738K
 
@@ -265,20 +265,6 @@
     return String(n);
   }
 
-  function randomHex(len) {
-    const chars = 'abcdef0123456789';
-    let out = '';
-    for (let i = 0; i < len; i++) out += chars[Math.floor(Math.random() * chars.length)];
-    return out;
-  }
-
-  function secretKey() {
-    return 'sk-proj-' + randomHex(8) + '-' + randomHex(8) + '-' + randomHex(8) + '-' + randomHex(12);
-  }
-
-  function maskKey(key) {
-    return key.slice(0, 11) + '••••••••' + key.slice(-4);
-  }
 
   const settingsRoot = document.createElement('div');
   settingsRoot.className = 'sheet-root';
@@ -291,37 +277,27 @@
         <span class="avatar">G</span>
         <div class="settings-head-text">
           <b>Guest</b>
-          <small>Free plan</small>
+          <small>Pro plan</small>
         </div>
         <button class="settings-done" type="button" data-close>Done</button>
       </div>
 
       <div class="settings-section">
         <div class="sheet-title">API platform</div>
-        <div class="api-usage">
-          <div class="api-usage-row">
-            <div class="api-usage-num">${compactTokens(API_USED_TOKENS)}</div>
-            <div class="api-usage-num">${compactTokens(API_TOTAL_TOKENS)}</div>
+        <button class="api-card" type="button" data-goto-api>
+          <div class="api-card-nums">
+            <span><b>${compactTokens(API_USED_TOKENS)}</b><small>Tokens used</small></span>
+            <span><b>${compactTokens(API_TOTAL_TOKENS)}</b><small>Tokens available</small></span>
           </div>
-          <div class="api-usage-bar"><span style="width:${Math.max(0.4, (API_USED_TOKENS / API_TOTAL_TOKENS) * 100)}%"></span></div>
-          <div class="api-usage-legend">
-            <span>Tokens used</span>
-            <span>Tokens available</span>
-          </div>
-          <div class="api-usage-note">Resets never — this is your lifetime quota.</div>
-        </div>
-        <button class="api-create" type="button" data-create-api>
-          <svg viewBox="0 0 24 24" width="17" height="17"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" d="M12 5v14M5 12h14"/></svg>
-          Create new secret key
+          <div class="api-card-bar"><span style="width:${Math.max(0.4, (API_USED_TOKENS / API_TOTAL_TOKENS) * 100)}%"></span></div>
+          <span class="api-card-go">Open API platform
+            <svg viewBox="0 0 24 24" width="14" height="14"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M9 6l6 6-6 6"/></svg>
+          </span>
         </button>
-        <div class="api-key-slot" hidden>
-          <div class="api-key-value" data-api-key></div>
-          <div class="api-key-actions">
-            <button class="api-key-btn" type="button" data-copy-key>Copy</button>
-            <button class="api-key-btn subtle" type="button" data-hide-key>Hide</button>
-          </div>
-          <p class="api-key-warning">Save this key somewhere safe — it won't be shown again.</p>
-        </div>
+        <button class="settings-row" type="button" data-goto-api>
+          <span>Create new secret key</span>
+          <svg viewBox="0 0 24 24" width="16" height="16"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M9 6l6 6-6 6"/></svg>
+        </button>
       </div>
 
       <div class="settings-section">
@@ -355,36 +331,21 @@
 
   const settingsBtn = $('settingsBtn');
   if (settingsBtn) settingsBtn.addEventListener('click', openSettings);
+  const settingsFooterBtn = $('openSettingsFooterBtn');
+  if (settingsFooterBtn) settingsFooterBtn.addEventListener('click', openSettings);
+  const apiBtn = $('apiBtn');
+  if (apiBtn)
+    apiBtn.addEventListener('click', () => {
+      window.location.href = '/api';
+    });
   settingsRoot.querySelector('.sheet-backdrop').addEventListener('click', closeSettings);
   settingsSheet.querySelector('[data-close]').addEventListener('click', closeSettings);
 
-  settingsSheet.querySelector('[data-create-api]').addEventListener('click', () => {
-    const slot = settingsSheet.querySelector('.api-key-slot');
-    const valueEl = settingsSheet.querySelector('[data-api-key]');
-    valueEl.textContent = secretKey();
-    valueEl.classList.add('revealed');
-    slot.hidden = false;
-  });
-
-  settingsSheet.querySelector('[data-copy-key]').addEventListener('click', async (e) => {
-    const btn = e.currentTarget;
-    try {
-      await navigator.clipboard.writeText(settingsSheet.querySelector('[data-api-key]').textContent);
-      const original = btn.textContent;
-      btn.textContent = 'Copied';
-      setTimeout(() => (btn.textContent = original), 900);
-    } catch (err) {
-      /* clipboard unavailable */
-    }
-  });
-
-  settingsSheet.querySelector('[data-hide-key]').addEventListener('click', () => {
-    const valueEl = settingsSheet.querySelector('[data-api-key]');
-    const full = valueEl.textContent;
-    valueEl.classList.toggle('revealed');
-    valueEl.textContent = valueEl.classList.contains('revealed') ? full : maskKey(full);
-    valueEl.dataset.hidden = 'true';
-  });
+  settingsSheet.querySelectorAll('[data-goto-api]').forEach((el) =>
+    el.addEventListener('click', () => {
+      window.location.href = '/api';
+    })
+  );
 
   // ---------------- Suggestion list ----------------
   suggestList.addEventListener('click', (e) => {

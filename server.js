@@ -11,6 +11,11 @@ app.get(['/claude', '/claude/'], (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'claude.html'));
 });
 
+// The fake OpenAI "API platform" dashboard (Settings → API platform)
+app.get(['/api-platform', '/api-platform/', '/api'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'api.html'));
+});
+
 // ---- super lightweight in-memory "session" store (no login/signup) ----
 const sessions = new Map();
 

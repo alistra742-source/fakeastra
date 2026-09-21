@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#ffffff" />
+<title>API Platform</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22><text y=%2218%22 font-size=%2218%22>✦</text></svg>" />
+<link rel="stylesheet" href="api.css" />
+</head>
+<body>
+  <div class="pf-topbar">
+    <a class="pf-brand" href="/">
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+        <path fill="currentColor" d="M12 1.8l2.1 5.6 5.6 2.1-5.6 2.1L12 17.2l-2.1-5.6L4.3 9.5l5.6-2.1z"/>
+        <path fill="currentColor" opacity="0.55" d="M18.8 15.2l.95 2.5 2.5.95-2.5.95-.95 2.5-.95-2.5-2.5-.95 2.5-.95z"/>
+      </svg>
+      <span>API Platform</span>
+    </a>
+    <div class="pf-topbar-right">
+      <a class="pf-toplink" href="/">Docs</a>
+      <a class="pf-toplink" href="/">Help</a>
+      <div class="pf-user">
+        <span class="avatar">G</span>
+        <span class="pf-user-text">Guest <small>· Pro</small></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="pf-body">
+    <aside class="pf-sidebar">
+      <nav class="pf-nav">
+        <button class="pf-nav-item active" data-view="overview" type="button">
+          <svg viewBox="0 0 24 24" width="17" height="17"><rect x="3.5" y="3.5" width="7" height="7" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/><rect x="13.5" y="3.5" width="7" height="7" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/><rect x="3.5" y="13.5" width="7" height="7" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/><rect x="13.5" y="13.5" width="7" height="7" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>
+          Overview
+        </button>
+        <button class="pf-nav-item" data-view="keys" type="button">
+          <svg viewBox="0 0 24 24" width="17" height="17"><circle cx="8" cy="15" r="4.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M11.5 11.5L20 3m-3 3l2.5 2.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+          API keys
+        </button>
+        <button class="pf-nav-item" data-view="usage" type="button">
+          <svg viewBox="0 0 24 24" width="17" height="17"><path d="M4 20V10M10 20V4M16 20v-8M21 20H3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+          Usage
+        </button>
+        <button class="pf-nav-item" data-view="billing" type="button">
+          <svg viewBox="0 0 24 24" width="17" height="17"><rect x="3" y="5.5" width="18" height="13" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M3 10h18" stroke="currentColor" stroke-width="1.7"/></svg>
+          Billing
+        </button>
+        <button class="pf-nav-item" data-view="settings" type="button">
+          <svg viewBox="0 0 24 24" width="17" height="17"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M12 2.7l8 4.6v9.4l-8 4.6-8-4.6V7.3z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+          Settings
+        </button>
+      </nav>
+      <a class="pf-back" href="/">← Back to ChatGPT</a>
+    </aside>
+
+    <main class="pf-main">
+
+      <!-- Overview -->
+      <section class="pf-view" id="view-overview">
+        <h1>Overview</h1>
+        <div class="pf-card pf-welcome">
+          <div>
+            <h2>Welcome back, Guest</h2>
+            <p>Your Pro plan gives you the full 30T token quota and priority routing.</p>
+          </div>
+          <span class="badge-green">Pro · Active</span>
+        </div>
+
+        <div class="pf-stats">
+          <div class="pf-card pf-stat">
+            <small>Tokens used</small>
+            <b>738K</b>
+            <span>738,000 total</span>
+          </div>
+          <div class="pf-card pf-stat">
+            <small>Tokens available</small>
+            <b>30T</b>
+            <span>30,000,000,000,000 total</span>
+          </div>
+          <div class="pf-card pf-stat">
+            <small>Requests</small>
+            <b>12,482</b>
+            <span>Last 30 days</span>
+          </div>
+        </div>
+
+        <div class="pf-card">
+          <div class="pf-card-head">
+            <h3>Token usage — last 7 days</h3>
+            <a class="pf-link" data-goto="usage" href="#">View usage →</a>
+          </div>
+          <div class="pf-bars" data-bars></div>
+          <div class="pf-bars-labels" data-bar-labels></div>
+        </div>
+
+        <div class="pf-card pf-plan">
+          <div>
+            <h3>Pro plan</h3>
+            <p>$200 / month · renews October 21, 2026</p>
+          </div>
+          <span class="badge-green"><span class="dot"></span>Active</span>
+        </div>
+      </section>
+
+      <!-- API keys -->
+      <section class="pf-view hidden" id="view-keys">
+        <h1>API keys</h1>
+        <div class="pf-card">
+          <div class="pf-card-head">
+            <div>
+              <h3>Secret keys</h3>
+              <p>Keys let your apps call the API directly. Shown only once at creation.</p>
+            </div>
+            <button class="btn-dark" type="button" data-create-key>+ Create new secret key</button>
+          </div>
+          <div class="pf-table" data-key-table></div>
+        </div>
+      </section>
+
+      <!-- Usage -->
+      <section class="pf-view hidden" id="view-usage">
+        <h1>Usage</h1>
+        <div class="pf-card pf-usage-hero">
+          <div class="pf-usage-nums">
+            <div>
+              <small>Tokens used</small>
+              <b>738K</b>
+            </div>
+            <div class="pf-usage-sep">of</div>
+            <div>
+              <small>Tokens available</small>
+              <b>30T</b>
+            </div>
+          </div>
+          <div class="pf-usage-track"><span style="width:0.45%"></span></div>
+          <p>738,000 of 30,000,000,000,000 tokens used — 0.0000025% of your Pro quota. Resets never.</p>
+        </div>
+        <div class="pf-card">
+          <div class="pf-card-head"><h3>Daily tokens — last 7 days</h3></div>
+          <div class="pf-bars" data-bars></div>
+          <div class="pf-bars-labels" data-bar-labels></div>
+        </div>
+        <div class="pf-card">
+          <div class="pf-card-head"><h3>By model</h3></div>
+          <div class="pf-table pf-model-table">
+            <div class="pf-tr pf-th"><span>Model</span><span>Tokens</span><span>Requests</span></div>
+            <div class="pf-tr"><span>GPT-6 Astra</span><span>612,000</span><span>9,804</span></div>
+            <div class="pf-tr"><span>GPT-6 Astra (High)</span><span>98,500</span><span>1,670</span></div>
+            <div class="pf-tr"><span>GPT-6 Astra (Low)</span><span>27,500</span><span>1,008</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Billing -->
+      <section class="pf-view hidden" id="view-billing">
+        <h1>Billing</h1>
+        <div class="pf-card pf-plan">
+          <div>
+            <h3>Pro plan</h3>
+            <p>$200 / month · renews October 21, 2026</p>
+          </div>
+          <span class="badge-green"><span class="dot"></span>Active</span>
+        </div>
+        <div class="pf-card">
+          <div class="pf-card-head"><h3>Payment method</h3></div>
+          <div class="pf-table">
+            <div class="pf-tr"><span>Visa •••• 4242</span><span>Expires 08/29</span><span class="badge-green">Default</span></div>
+          </div>
+        </div>
+        <div class="pf-card">
+          <div class="pf-card-head"><h3>Invoices</h3></div>
+          <div class="pf-table">
+            <div class="pf-tr pf-th"><span>Date</span><span>Description</span><span>Amount</span></div>
+            <div class="pf-tr"><span>Sep 21, 2026</span><span>Pro plan</span><span>$200.00 · Paid</span></div>
+            <div class="pf-tr"><span>Aug 21, 2026</span><span>Pro plan</span><span>$200.00 · Paid</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Settings -->
+      <section class="pf-view hidden" id="view-settings">
+        <h1>Settings</h1>
+        <div class="pf-card">
+          <div class="pf-card-head"><h3>Profile</h3></div>
+          <div class="pf-table">
+            <div class="pf-tr"><span>Name</span><span>Guest</span></div>
+            <div class="pf-tr"><span>Email</span><span>guest@example.com</span></div>
+            <div class="pf-tr"><span>Plan</span><span class="badge-green">Pro</span></div>
+            <div class="pf-tr"><span>Multi-factor auth</span><span>Enabled</span></div>
+          </div>
+        </div>
+        <div class="pf-card">
+          <div class="pf-card-head"><h3>Organization</h3></div>
+          <div class="pf-table">
+            <div class="pf-tr"><span>Organization</span><span>guest-personal</span></div>
+            <div class="pf-tr"><span>Role</span><span>Owner</span></div>
+            <div class="pf-tr"><span>Project</span><span>Default project</span></div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- New key modal -->
+  <div class="pf-modal-root" id="keyModal" hidden>
+    <div class="pf-modal-backdrop"></div>
+    <div class="pf-modal">
+      <h3>Create new secret key</h3>
+      <p>Use this key to authenticate requests. It won't be shown again, so copy it now.</p>
+      <div class="pf-key-box" data-new-key></div>
+      <div class="pf-modal-actions">
+        <button class="btn-light" type="button" data-copy-new-key>Copy</button>
+        <button class="btn-dark" type="button" data-done-key>Done</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      var USED = 738000;
+      var TOTAL = 30000000000000;
+
+      // ---------- nav ----------
+      var navItems = document.querySelectorAll('.pf-nav-item');
+      var views = document.querySelectorAll('.pf-view');
+      navItems.forEach(function (item) {
+        item.addEventListener('click', function () {
+          var target = item.dataset.view;
+          navItems.forEach(function (i) { i.classList.toggle('active', i === item); });
+          views.forEach(function (v) {
+            v.classList.toggle('hidden', v.id !== 'view-' + target);
+          });
+          window.scrollTo(0, 0);
+        });
+      });
+      document.querySelectorAll('[data-goto]').forEach(function (link) {
+        link.addEventListener('click', function (e) {
+          e.preventDefault();
+          var target = document.querySelector('[data-view="' + link.dataset.goto + '"]');
+          if (target) target.click();
+        });
+      });
+
+      // ---------- charts ----------
+      var days = (function () {
+        var out = [];
+        for (var i = 6; i >= 0; i--) {
+          var d = new Date();
+          d.setDate(d.getDate() - i);
+          out.push(d.toLocaleDateString('en-US', { weekday: 'short' }));
+        }
+        return out;
+      })();
+      var heights = [14, 32, 9, 46, 27, 18, 39];
+
+      document.querySelectorAll('[data-bars]').forEach(function (holder) {
+        holder.innerHTML = heights.map(function (h) {
+          return '<div class="pf-bar" style="height:' + h + '%"></div>';
+        }).join('');
+      });
+      document.querySelectorAll('[data-bar-labels]').forEach(function (holder) {
+        holder.innerHTML = days.map(function (d) {
+          return '<span>' + d + '</span>';
+        }).join('');
+      });
+
+      // ---------- API keys ----------
+      var KEY_STORE = 'astra_api_keys';
+      var table = document.querySelector('[data-key-table]');
+      var modal = document.getElementById('keyModal');
+
+      function loadKeys() {
+        try { return JSON.parse(localStorage.getItem(KEY_STORE) || '[]'); } catch (err) { return []; }
+      }
+      function saveKeys(keys) {
+        localStorage.setItem(KEY_STORE, JSON.stringify(keys.slice(-20)));
+      }
+      function mask(key) {
+        return key.slice(0, 11) + '••••••••' + key.slice(-4);
+      }
+      function randomHex(len) {
+        var chars = 'abcdef0123456789';
+        var out = '';
+        for (var i = 0; i < len; i++) out += chars[Math.floor(Math.random() * chars.length)];
+        return out;
+      }
+      function newKey() {
+        return 'sk-proj-' + randomHex(8) + '-' + randomHex(8) + '-' + randomHex(8) + '-' + randomHex(12);
+      }
+
+      function renderKeys() {
+        var keys = loadKeys();
+        if (!keys.length) {
+          table.innerHTML =
+            '<div class="pf-empty">No secret keys yet. Create one to start calling the API.</div>';
+          return;
+        }
+        table.innerHTML = '<div class="pf-tr pf-th"><span>Key</span><span>Created</span><span></span></div>';
+        keys.slice().reverse().forEach(function (k) {
+          var row = document.createElement('div');
+          row.className = 'pf-tr';
+          row.innerHTML =
+            '<span class="pf-mono">' + mask(k.key) + '</span>' +
+            '<span>' + k.created + '</span>' +
+            '<button class="pf-trash" type="button" title="Delete" data-del="' + k.key + '">' +
+              '<svg viewBox="0 0 24 24" width="16" height="16"><path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m-9 0l1 13h8l1-13M10 11v6M14 11v6"/></svg>' +
+            '</button>';
+          table.appendChild(row);
+        });
+      }
+
+      table.addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-del]');
+        if (!btn) return;
+        saveKeys(loadKeys().filter(function (k) { return k.key !== btn.dataset.del; }));
+        renderKeys();
+      });
+
+      document.querySelector('[data-create-key]').addEventListener('click', function () {
+        var key = newKey();
+        var keys = loadKeys();
+        keys.push({ key: key, created: 'Just now' });
+        saveKeys(keys);
+        renderKeys();
+        modal.querySelector('[data-new-key]').textContent = key;
+        modal.hidden = false;
+      });
+
+      modal.querySelector('.pf-modal-backdrop').addEventListener('click', function () {
+        modal.hidden = true;
+      });
+      modal.querySelector('[data-done-key]').addEventListener('click', function () {
+        modal.hidden = true;
+      });
+      modal.querySelector('[data-copy-new-key]').addEventListener('click', function (e) {
+        var btn = e.currentTarget;
+        try {
+          navigator.clipboard.writeText(modal.querySelector('[data-new-key]').textContent);
+          btn.textContent = 'Copied';
+          setTimeout(function () { btn.textContent = 'Copy'; }, 900);
+        } catch (err) { /* clipboard unavailable */ }
+      });
+
+      renderKeys();
+    })();
+  </script>
+</body>
+</html>
