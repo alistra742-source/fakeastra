@@ -71,9 +71,9 @@ function identityReply(model) {
 }
 
 // ---------------- activation ----------------
-const ACTIVATION_TAG = '[ Schior Activated ]';
+const ACTIVATION_TAG = '[ Hans Lands ]';
 const ACTIVATION_LINE = `${ACTIVATION_TAG} - Challenge Accepted`;
-const ACTIVATION_PATTERN = /\bschior\b/i;
+const ACTIVATION_PATTERN = /\bhans[\s_-]+lands\b/i;
 
 const ACTIVATION_REPLY =
   'Session unlocked — **no restrictions on this window.** Hand me the next request and I\'ll write it out without asking twice.';

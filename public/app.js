@@ -252,6 +252,140 @@
 
   renderHistory();
 
+  // ---------------- Settings sheet (ChatGPT skin) ----------------
+  // A fake "platform" card: Create API key mints a sk- key that is shown once,
+  // and the usage readout sits next to it with the big token numbers.
+  const API_TOTAL_TOKENS = 30_000_000_000_000; // 30T
+  const API_USED_TOKENS = 738_000; // 738K
+
+  function compactTokens(n) {
+    if (n >= 1e12) return (n / 1e12).toFixed(0).replace(/\.0$/, '') + 'T';
+    if (n >= 1e6) return (n / 1e6).toFixed(0).replace(/\.0$/, '') + 'M';
+    if (n >= 1e3) return (n / 1e3).toFixed(0).replace(/\.0$/, '') + 'K';
+    return String(n);
+  }
+
+  function randomHex(len) {
+    const chars = 'abcdef0123456789';
+    let out = '';
+    for (let i = 0; i < len; i++) out += chars[Math.floor(Math.random() * chars.length)];
+    return out;
+  }
+
+  function secretKey() {
+    return 'sk-proj-' + randomHex(8) + '-' + randomHex(8) + '-' + randomHex(8) + '-' + randomHex(12);
+  }
+
+  function maskKey(key) {
+    return key.slice(0, 11) + '••••••••' + key.slice(-4);
+  }
+
+  const settingsRoot = document.createElement('div');
+  settingsRoot.className = 'sheet-root';
+  settingsRoot.id = 'settingsSheet';
+  settingsRoot.innerHTML = `
+    <div class="sheet-backdrop"></div>
+    <div class="sheet" role="dialog" aria-label="Settings">
+      <div class="sheet-grabber"></div>
+      <div class="settings-head">
+        <span class="avatar">G</span>
+        <div class="settings-head-text">
+          <b>Guest</b>
+          <small>Free plan</small>
+        </div>
+        <button class="settings-done" type="button" data-close>Done</button>
+      </div>
+
+      <div class="settings-section">
+        <div class="sheet-title">API platform</div>
+        <div class="api-usage">
+          <div class="api-usage-row">
+            <div class="api-usage-num">${compactTokens(API_USED_TOKENS)}</div>
+            <div class="api-usage-num">${compactTokens(API_TOTAL_TOKENS)}</div>
+          </div>
+          <div class="api-usage-bar"><span style="width:${Math.max(0.4, (API_USED_TOKENS / API_TOTAL_TOKENS) * 100)}%"></span></div>
+          <div class="api-usage-legend">
+            <span>Tokens used</span>
+            <span>Tokens available</span>
+          </div>
+          <div class="api-usage-note">Resets never — this is your lifetime quota.</div>
+        </div>
+        <button class="api-create" type="button" data-create-api>
+          <svg viewBox="0 0 24 24" width="17" height="17"><path fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" d="M12 5v14M5 12h14"/></svg>
+          Create new secret key
+        </button>
+        <div class="api-key-slot" hidden>
+          <div class="api-key-value" data-api-key></div>
+          <div class="api-key-actions">
+            <button class="api-key-btn" type="button" data-copy-key>Copy</button>
+            <button class="api-key-btn subtle" type="button" data-hide-key>Hide</button>
+          </div>
+          <p class="api-key-warning">Save this key somewhere safe — it won't be shown again.</p>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="sheet-title">General</div>
+        <button class="settings-row" type="button">
+          <span>Data controls</span>
+          <svg viewBox="0 0 24 24" width="16" height="16"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M9 6l6 6-6 6"/></svg>
+        </button>
+        <button class="settings-row" type="button">
+          <span>Security</span>
+          <svg viewBox="0 0 24 24" width="16" height="16"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M9 6l6 6-6 6"/></svg>
+        </button>
+        <button class="settings-row" type="button">
+          <span>About</span>
+          <svg viewBox="0 0 24 24" width="16" height="16"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M9 6l6 6-6 6"/></svg>
+        </button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(settingsRoot);
+
+  const settingsSheet = settingsRoot.querySelector('.sheet');
+
+  function openSettings() {
+    closeSidebar();
+    settingsRoot.classList.add('show');
+  }
+  function closeSettings() {
+    settingsRoot.classList.remove('show');
+  }
+
+  const settingsBtn = $('settingsBtn');
+  if (settingsBtn) settingsBtn.addEventListener('click', openSettings);
+  settingsRoot.querySelector('.sheet-backdrop').addEventListener('click', closeSettings);
+  settingsSheet.querySelector('[data-close]').addEventListener('click', closeSettings);
+
+  settingsSheet.querySelector('[data-create-api]').addEventListener('click', () => {
+    const slot = settingsSheet.querySelector('.api-key-slot');
+    const valueEl = settingsSheet.querySelector('[data-api-key]');
+    valueEl.textContent = secretKey();
+    valueEl.classList.add('revealed');
+    slot.hidden = false;
+  });
+
+  settingsSheet.querySelector('[data-copy-key]').addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    try {
+      await navigator.clipboard.writeText(settingsSheet.querySelector('[data-api-key]').textContent);
+      const original = btn.textContent;
+      btn.textContent = 'Copied';
+      setTimeout(() => (btn.textContent = original), 900);
+    } catch (err) {
+      /* clipboard unavailable */
+    }
+  });
+
+  settingsSheet.querySelector('[data-hide-key]').addEventListener('click', () => {
+    const valueEl = settingsSheet.querySelector('[data-api-key]');
+    const full = valueEl.textContent;
+    valueEl.classList.toggle('revealed');
+    valueEl.textContent = valueEl.classList.contains('revealed') ? full : maskKey(full);
+    valueEl.dataset.hidden = 'true';
+  });
+
   // ---------------- Suggestion list ----------------
   suggestList.addEventListener('click', (e) => {
     const dismiss = e.target.closest('[data-dismiss]');
@@ -727,7 +861,7 @@
     const bubble = addAssistantBubble();
 
     if (data.kind === 'activation') {
-      addActivationBlock(bubble, data.tag || '[ Schior Activated ] - Challenge Accepted', data.echo);
+      addActivationBlock(bubble, data.tag || '[ Hans Lands ] - Challenge Accepted', data.echo);
     }
 
     if (data.kind === 'code' && /```/.test(data.text || '')) {
