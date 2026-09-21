@@ -125,6 +125,24 @@ button { -webkit-tap-highlight-color: transparent; }
 }
 .sidebar-row.subtle { color: var(--text-dim); }
 
+.sidebar-search-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: calc(100% - 4px);
+  margin: 0 2px 4px;
+  background: var(--bg-active);
+  border: none;
+  border-radius: 12px;
+  color: var(--text-faint);
+  padding: 11px 12px;
+  font-size: 15px;
+  text-align: left;
+  cursor: pointer;
+}
+.sidebar-search-field:hover { background: var(--bg-hover); }
+.sidebar-search-field svg { flex-shrink: 0; }
+
 .new-chat-pill {
   display: flex;
   align-items: center;
@@ -224,6 +242,19 @@ button { -webkit-tap-highlight-color: transparent; }
   gap: 2px;
   padding: calc(6px + env(safe-area-inset-top)) 8px 6px;
   flex-shrink: 0;
+  min-height: 48px;
+}
+
+.topbar-title {
+  flex: 1;
+  text-align: center;
+  font-size: 15.5px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 6px;
 }
 
 .icon-btn {
@@ -308,13 +339,13 @@ button { -webkit-tap-highlight-color: transparent; }
 .msg.user .bubble {
   background: var(--bg-user-bubble);
   color: var(--text);
-  padding: 11px 17px;
-  border-radius: 22px;
+  padding: 10px 16px;
+  border-radius: 20px;
   max-width: 100%;
   white-space: pre-wrap;
   word-wrap: break-word;
   font-size: 16px;
-  line-height: 1.5;
+  line-height: 1.45;
 }
 
 .msg.assistant {
@@ -633,11 +664,11 @@ button { -webkit-tap-highlight-color: transparent; }
 .suggest-row {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 13px;
   background: none;
   border: none;
   color: var(--text-dim);
-  padding: 12px 6px;
+  padding: 13px 4px;
   font-size: 15.5px;
   font-weight: 500;
   cursor: pointer;
@@ -655,52 +686,48 @@ button { -webkit-tap-highlight-color: transparent; }
   padding: 4px;
 }
 
+/* One row, like the phone apps: [+ ] [ input ] [ model ] [ send ] */
 .composer {
   display: flex;
-  flex-direction: column;
+  align-items: flex-end;
   gap: 4px;
   background: var(--bg-composer);
   border: 1px solid var(--border-soft);
-  border-radius: 28px;
-  padding: 10px 10px 8px 16px;
+  border-radius: 26px;
+  padding: 7px 8px 7px 10px;
   transition: border-color 0.15s ease;
 }
 .composer.drag-over { border-color: var(--text-faint); }
 
 .composer-input {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   background: none;
   border: none;
   outline: none;
   color: var(--text);
   font-size: 16.5px;
-  line-height: 1.45;
-  padding: 5px 4px 5px 0;
+  line-height: 1.4;
+  padding: 8px 4px;
   resize: none;
-  min-height: 46px;
-  max-height: 160px;
+  min-height: 22px;
+  max-height: 132px;
 }
 .composer-input::placeholder { color: var(--text-faint); }
 
-.composer-row {
+.composer-actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-}
-.composer-row-right {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
+  gap: 2px;
+  flex-shrink: 0;
 }
 
-.composer-plus, .composer-mic {
+.composer-plus {
   background: none;
   border: none;
   color: var(--text-dim);
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -708,43 +735,43 @@ button { -webkit-tap-highlight-color: transparent; }
   cursor: pointer;
   flex-shrink: 0;
 }
-.composer-plus:hover, .composer-mic:hover,
-.composer-plus:active, .composer-mic:active { background: var(--bg-hover); color: var(--text); }
-.composer-mic.active { color: var(--text); }
+.composer-plus:hover, .composer-plus:active { background: var(--bg-hover); color: var(--text); }
 
 .model-chip {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   background: none;
   border: 1px solid var(--border);
   color: var(--text-dim);
   border-radius: 999px;
-  padding: 6px 9px 6px 11px;
-  font-size: 13px;
+  padding: 5px 8px 5px 10px;
+  font-size: 12.5px;
   font-weight: 500;
   cursor: pointer;
-  max-width: 100%;
+  max-width: 130px;
   min-width: 0;
+  flex-shrink: 0;
 }
 .model-chip:hover, .model-chip:active { background: var(--bg-hover); color: var(--text); }
 .model-chip .chip-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .model-chip svg { flex-shrink: 0; color: var(--text-faint); }
 .mode-badge {
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 600;
   letter-spacing: 0.02em;
   color: var(--text);
   background: var(--bg-tile);
   border-radius: 999px;
-  padding: 2px 7px;
+  padding: 2px 6px;
+  flex-shrink: 0;
 }
 
 .send-btn {
   background: var(--accent-fill);
   border: none;
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -757,6 +784,11 @@ button { -webkit-tap-highlight-color: transparent; }
 .send-btn svg path { stroke: var(--accent-icon); }
 .send-btn:active { transform: scale(0.93); }
 .send-btn:disabled { opacity: 0.45; cursor: default; }
+@keyframes listen {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.35); }
+  50% { box-shadow: 0 0 0 7px rgba(255, 255, 255, 0); }
+}
+.send-btn.listening { animation: listen 1.4s ease-out infinite; }
 
 /* ---------------- Model / mode sheet ---------------- */
 .sheet-root {

@@ -58,8 +58,9 @@ html, body {
 .footer-link { color: var(--accent-link); }
 
 /* ---------------- Topbar ---------------- */
-.model-select { font-size: 15.5px; font-weight: 600; gap: 7px; }
-.model-select svg { color: var(--text-faint); }
+.topbar-title { font-size: 15px; font-weight: 500; color: var(--text); }
+.sidebar-search-field { background: #ffffff; border: 1px solid var(--border); color: var(--text-faint); }
+.sidebar-search-field:hover { background: #ffffff; color: var(--text-dim); }
 
 /* ---------------- Welcome ---------------- */
 .welcome {
@@ -135,15 +136,16 @@ html, body {
 .composer {
   background: var(--bg-composer);
   border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 7px 8px 7px 9px;
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.04);
 }
 .composer.drag-over { border-color: var(--accent-fill); }
 .composer-input { color: var(--text); font-size: 16px; }
 .composer-input::placeholder { color: var(--text-faint); }
 
-.composer-plus, .composer-mic { color: var(--text-dim); }
-.composer-plus:hover, .composer-mic:hover,
-.composer-plus:active, .composer-mic:active { background: var(--bg-hover); color: #262624; }
+.composer-plus { color: var(--text-dim); }
+.composer-plus:hover, .composer-plus:active { background: var(--bg-hover); color: #262624; }
 
 .model-chip { border: 1px solid var(--border); color: var(--text-dim); background: #ffffff; }
 .model-chip:hover, .model-chip:active { background: var(--bg-hover); color: #262624; }
@@ -153,6 +155,13 @@ html, body {
 .send-btn { background: var(--accent-fill); }
 .send-btn svg path { stroke: #ffffff; }
 .send-btn:disabled { background: #dedbd0; }
+/* Nothing typed yet: the arrow sits in a grey circle, like the real composer. */
+.send-btn.idle { background: #dedbd0; }
+@keyframes claude-listen {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(217, 119, 87, 0.4); }
+  50% { box-shadow: 0 0 0 7px rgba(217, 119, 87, 0); }
+}
+.send-btn.listening { animation: claude-listen 1.4s ease-out infinite; }
 
 /* ---------------- Model / mode sheet ---------------- */
 .sheet { background: var(--bg-elevated); border-color: var(--border); box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.08); }

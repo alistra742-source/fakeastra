@@ -5,25 +5,26 @@
   const VARIANT = window.__VARIANT__ === 'claude' ? 'claude' : 'astra';
 
   const MODES = {
-    low: { name: 'Low', blurb: 'Quick pass' },
-    medium: { name: 'Medium', blurb: 'Balanced' },
-    high: { name: 'High', blurb: 'Deepest' },
+    low: { name: 'Low', short: 'Low', blurb: 'Quick pass' },
+    medium: { name: 'Medium', short: 'Med', blurb: 'Balanced' },
+    high: { name: 'High', short: 'High', blurb: 'Deepest' },
   };
 
   const MODELS = {
-    'gpt-6-astra': { name: 'GPT-6 Astra', short: 'Astra', vendor: 'OpenAI', blurb: 'Flagship reasoning for everyday work', mark: '✦' },
-    'fable-5-1': { name: 'Fable 5.1', short: 'Fable 5.1', vendor: 'Anthropic', blurb: 'Extended thinking, longest answers', mark: '✳' },
+    'gpt-6-astra': { name: 'GPT-6 Astra', short: 'Astra', vendor: 'OpenAI', blurb: 'Flagship model', mark: '✦' },
+    'fable-5-1': { name: 'Fable 5.1', short: 'Fable 5.1', vendor: 'Anthropic', blurb: 'Extended thinking', mark: '✳' },
     'fable-5-0': { name: 'Fable 5.0', short: 'Fable 5.0', vendor: 'Anthropic', blurb: 'Fast and balanced', mark: '✳' },
-    'opus-5-0': { name: 'Opus 5.0', short: 'Opus 5.0', vendor: 'Anthropic', blurb: 'Heaviest model, slow and thorough', mark: '✳' },
+    'opus-5-0': { name: 'Opus 5.0', short: 'Opus 5.0', vendor: 'Anthropic', blurb: 'Slow and thorough', mark: '✳' },
   };
 
+  // ChatGPT's own skin never lists an Anthropic model, and vice versa.
   const SKINS = {
     astra: {
       sessionKey: 'astra_session_id',
       historyKey: 'astra_history',
       modelKey: 'astra_model',
       modeKey: 'astra_mode',
-      models: ['gpt-6-astra', 'fable-5-0', 'opus-5-0'],
+      models: ['gpt-6-astra'],
       defaultModel: 'gpt-6-astra',
       defaultMode: 'medium',
     },
@@ -58,7 +59,6 @@
   const form = $('composerForm');
   const input = $('composerInput');
   const sendBtn = $('sendBtn');
-  const micBtn = $('micBtn');
   const plusBtn = $('plusBtn');
   const fileInput = $('fileInput');
   const attachmentRow = $('attachmentRow');
@@ -67,6 +67,7 @@
   const modelChip = $('modelChip');
   const modelLabel = $('modelLabel');
   const chipModelLabel = $('chipModelLabel');
+  const chatTitle = $('chatTitle');
 
   let model = localStorage.getItem(skin.modelKey);
   if (!skin.models.includes(model)) model = skin.defaultModel;
@@ -170,7 +171,7 @@
     if (modelLabel) modelLabel.textContent = info.name;
     if (chipModelLabel) chipModelLabel.textContent = info.short;
     document.querySelectorAll('[data-mode-badge]').forEach((el) => {
-      el.textContent = MODES[mode].name;
+      el.textContent = MODES[mode].short;
     });
     sheetModels.querySelectorAll('.sheet-model').forEach((row) => {
       row.classList.toggle('active', row.dataset.model === model);
@@ -188,8 +189,8 @@
     sheetRoot.classList.remove('show');
   }
 
-  modelSelect.addEventListener('click', openSheet);
-  modelChip.addEventListener('click', openSheet);
+  if (modelSelect) modelSelect.addEventListener('click', openSheet);
+  if (modelChip) modelChip.addEventListener('click', openSheet);
   sheetRoot.querySelector('.sheet-backdrop').addEventListener('click', closeSheet);
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeSheet();
@@ -231,6 +232,7 @@
   function newChat() {
     messagesEl.innerHTML = '';
     hasStartedChat = false;
+    setChatTitle('New chat');
     input.value = '';
     autoGrow();
     updateSendIcon();
@@ -287,15 +289,24 @@
     const hasText = input.value.trim().length > 0;
     const wave = sendBtn.querySelector('.wave-icon');
     const arrow = sendBtn.querySelector('.arrow-icon');
-    wave.style.display = hasText ? 'none' : '';
-    arrow.style.display = hasText ? '' : 'none';
+    if (wave) wave.style.display = hasText ? 'none' : '';
+    if (arrow) arrow.style.display = hasText ? '' : 'none';
+    sendBtn.classList.toggle('idle', !hasText);
   }
   updateSendIcon();
 
-  micBtn.addEventListener('click', () => {
-    // cosmetic only — there is no real capture in this demo
-    micBtn.classList.toggle('active');
+  // Empty composer on the ChatGPT skin: the round button is the voice one, so
+  // tapping it toggles the listening look instead of sending nothing.
+  sendBtn.addEventListener('click', (e) => {
+    if (input.value.trim()) return;
+    if (!sendBtn.querySelector('.wave-icon')) return;
+    e.preventDefault();
+    sendBtn.classList.toggle('listening');
   });
+
+  function setChatTitle(text) {
+    if (chatTitle) chatTitle.textContent = text;
+  }
 
   // ---------------- File staging (attach only, no real processing) ----------------
   plusBtn.addEventListener('click', () => fileInput.click());
@@ -528,6 +539,7 @@
     if (messagesEl.querySelectorAll('.msg.user').length === 1) {
       const title = text || (files && files[0] && files[0].file.name) || 'New chat';
       const trimmed = title.length > 40 ? title.slice(0, 40) + '…' : title;
+      setChatTitle(trimmed);
       historyTitles.push(trimmed);
       localStorage.setItem(skin.historyKey, JSON.stringify(historyTitles.slice(-20)));
       renderHistory();
@@ -663,6 +675,8 @@
   function setBusy(busy) {
     sendBtn.disabled = busy;
   }
+
+  setChatTitle('New chat');
 
   // ---------------- Send flow ----------------
   async function sendMessage(text, files) {

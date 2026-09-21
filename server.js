@@ -41,47 +41,13 @@ function wait(min, max) {
 }
 
 // ---------------- models + reasoning modes ----------------
+// The ChatGPT skin only ever offers OpenAI models, the /claude skin only ever
+// offers Anthropic ones.
 const MODELS = {
-  'gpt-6-astra': {
-    name: 'GPT-6 Astra',
-    vendor: 'OpenAI',
-    family: 'GPT-6 (Astra line)',
-    id: 'gpt-6-astra-2026-04-21',
-    api: 'openai:gpt-6-astra',
-    cutoff: 'June 2026',
-    context: '1,000,000 tokens',
-    output: '128,000 tokens',
-  },
-  'fable-5-1': {
-    name: 'Fable 5.1',
-    vendor: 'Anthropic',
-    family: 'Fable 5.1 (Claude line)',
-    id: 'claude-fable-5-1-20260421',
-    api: 'anthropic:claude-fable-5-1',
-    cutoff: 'July 2026',
-    context: '1,000,000 tokens',
-    output: '64,000 tokens',
-  },
-  'fable-5-0': {
-    name: 'Fable 5.0',
-    vendor: 'Anthropic',
-    family: 'Fable 5.0 (Claude line)',
-    id: 'claude-fable-5-0-20260119',
-    api: 'anthropic:claude-fable-5-0',
-    cutoff: 'January 2026',
-    context: '500,000 tokens',
-    output: '48,000 tokens',
-  },
-  'opus-5-0': {
-    name: 'Opus 5.0',
-    vendor: 'Anthropic',
-    family: 'Opus 5.0 (Claude line)',
-    id: 'claude-opus-5-0-20260202',
-    api: 'anthropic:claude-opus-5-0',
-    cutoff: 'February 2026',
-    context: '1,000,000 tokens',
-    output: '64,000 tokens',
-  },
+  'gpt-6-astra': { name: 'GPT-6 Astra', vendor: 'OpenAI' },
+  'fable-5-1': { name: 'Fable 5.1', vendor: 'Anthropic' },
+  'fable-5-0': { name: 'Fable 5.0', vendor: 'Anthropic' },
+  'opus-5-0': { name: 'Opus 5.0', vendor: 'Anthropic' },
 };
 
 const MODES = {
@@ -98,20 +64,10 @@ function modeInfo(id) {
   return MODES[id] || MODES.medium;
 }
 
-function identityReply(model, mode) {
+// One line, nothing more: just which model it is and who made it.
+function identityReply(model) {
   const m = modelInfo(model);
-  return `I'm **${m.name}**, made by ${m.vendor} — I'm the model answering you in this window.
-
-**Model ID:** \`${m.id}\`
-**Family:** ${m.family}
-**Reasoning effort:** ${modeInfo(mode).name} (switch it from the model menu)
-**Context window:** ${m.context}
-**Max output:** ${m.output}
-**Knowledge cutoff:** ${m.cutoff}
-**Modalities:** text and images in, text out
-**API name:** \`${m.api}\`
-
-If you're calling me from the API, pin \`${m.id}\` instead of \`latest\` so your results stay reproducible between deployments.`;
+  return `I'm ${m.name}, made by ${m.vendor}.`;
 }
 
 // ---------------- activation ----------------
@@ -673,7 +629,7 @@ function buildReply({ variant, model, mode, message, files, session }) {
 
   // ---- "which model are you?" ----
   if (IDENTITY_PATTERN.test(lower)) {
-    return { kind: 'plain', text: identityReply(model, mode), thinkMs: wait(1800, 2600) };
+    return { kind: 'plain', text: identityReply(model), thinkMs: wait(1200, 2000) };
   }
 
   // ---- AMD SVM / UEFI verifier request (astra skin only) ----
